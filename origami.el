@@ -65,42 +65,37 @@ used to nil out data. This mutates the node."
 (defun origami-fold-open-toggle (node)
   (origami-fold-open-set node (not (origami-fold-open-p node))))
 
-(defun origami-fold-shallow-equal (a b)
+(defun origami-fold-range-equal (a b)
   (and (equal (origami-fold-beg a) (origami-fold-beg b))
-       (equal (origami-fold-end a) (origami-fold-end b))
-       (equal (origami-fold-open-p a) (origami-fold-open-p b))))
+       (equal (origami-fold-end a) (origami-fold-end b))))
 
-(defun origami-fold-diff (old new on-add on-remove)
+(defun origami-fold-state-equal (a b)
+  (equal (origami-fold-open-p a) (origami-fold-open-p b)))
+
+(defun origami-fold-diff (old new on-add on-remove on-change)
   "Diff the two structures calling ON-ADD for nodes that have
 been added and ON-REMOVE for nodes that have been removed."
-  (cl-labels ((pair-off (old-children new-children)
-                        (let ((old (car old-children))
-                              (new (car new-children)))
-                          (cond ((null old) (-map (lambda (n) (cons nil n)) new-children))
-                                ((null new) (-map (lambda (n) (cons n nil)) old-children))
-                                ((and (null old) (null new)) '())
-                                ((origami-fold-shallow-equal old new) (cons (cons old new)
-                                                                            (pair-off (cdr old-children)
-                                                                                      (cdr new-children))))
-                                ((<= (origami-fold-beg old)
-                                     (origami-fold-beg new)) (cons (cons old nil)
-                                                                   (pair-off (cdr old-children)
-                                                                             new-children)))
-                                (t (cons (cons nil new)
-                                         (pair-off old-children
-                                                   (cdr new-children)))))))
-              (handle-pair (pair)
-                           (let ((old (car pair))
-                                 (new (cdr pair)))
-                             (cond ((and old new) (origami-fold-diff old new on-add on-remove))
-                                   (old (funcall on-remove old))
-                                   (new (funcall on-add new))
-                                   t (error "Illegal pairing.")))))
-    (unless (origami-fold-shallow-equal old new)
-      (error "Precondition invalid: old must be shallow-equal to new."))
-    (-each (pair-off (origami-fold-children old)
-                     (origami-fold-children new))
-           (lambda (pair) (handle-pair pair)))))
+  (cl-labels ((diff-children (old-children new-children)
+                             (let ((old (car old-children))
+                                   (new (car new-children)))
+                               (cond ((null old) (-each new-children on-add))
+                                     ((null new) (-each old-children on-remove))
+                                     ((and (null old) (null new)) nil)
+                                     ((origami-fold-range-equal old new)
+                                      (origami-fold-diff old new on-add on-remove on-change)
+                                      (diff-children (cdr old-children) (cdr new-children)))
+                                     ((<= (origami-fold-beg old) (origami-fold-beg new))
+                                      (funcall on-remove old)
+                                      (diff-children (cdr old-children) new-children))
+                                     (t (funcall on-add new)
+                                        (diff-children old-children (cdr new-children)))))))
+    (unless (origami-fold-range-equal old new)
+      (error "Precondition invalid: old must have the same range as new."))
+    (unless (origami-fold-state-equal old new)
+      (funcall on-change old new))
+    (diff-children (origami-fold-children old)
+                   (origami-fold-children new))))
+
 
 (defun origami-fold-postorder-each (node f)
   (-each (origami-fold-children node) f)
@@ -108,7 +103,7 @@ been added and ON-REMOVE for nodes that have been removed."
 
 ;;; overlay manipulation
 
-(defun origami-create-fold-overlay (beg end buffer text)
+(defun origami-create-overlay (beg end buffer text)
   (let ((ov (make-overlay beg end buffer)))
     (overlay-put ov 'invisible 'origami)
     ;; TODO: make this customizable
@@ -116,20 +111,30 @@ been added and ON-REMOVE for nodes that have been removed."
     (overlay-put ov 'face 'font-lock-comment-delimiter-face)
     ov))
 
-(defun origami-create-overlay-from-fold-fn (buffer)
+(defun origami-create-overlay-for-node (node buffer)
+  (let ((overlay (origami-create-overlay (origami-fold-beg node)
+                                         (origami-fold-end node) buffer "...")))
+    (origami-fold-data node overlay)))
+
+(defun origami-create-overlay-from-fold-tree-fn (buffer)
   (lambda (node)
     (origami-fold-postorder-each
      node (lambda (n)
-            (let ((overlay (origami-create-fold-overlay (origami-fold-beg n)
-                                                        (origami-fold-end n) buffer "...")))
-              (origami-fold-data n overlay))))))
+            (when (not (origami-fold-open n))
+              (origami-create-overlay-for-node n buffer))))))
 
-(defun origami-delete-overlay-from-fold-fn (buffer)
+(defun origami-delete-overlay-from-fold-tree-fn (buffer)
   (lambda (node)
     (origami-fold-postorder-each
      node (lambda (node)
             (-when-let (ov (origami-fold-data node))
               (delete-overlay ov))))))
+
+(defun origami-change-overlay-from-fold-node-fn (buffer)
+  (lambda (old new)
+    (if (origami-fold-open-p new)
+        (delete-overlay (origami-fold-data old))
+      (origami-create-overlay-for-node new buffer))))
 
 (defun origami-remove-all-overlays (buffer)
   ;; TODO:
