@@ -45,9 +45,13 @@
   (origami-fold-node 0 0 t children))
 
 (defun origami-fold-beg (node) (aref node 0))
+
 (defun origami-fold-end (node) (aref node 1))
+
 (defun origami-fold-open-p (node) (aref node 2))
+
 (defun origami-fold-children (node) (aref node 3))
+
 (defun origami-fold-data (node &optional data)
   "With optional param DATA, add or replace data. This cannot be
 used to nil out data. This mutates the node."
@@ -95,7 +99,6 @@ been added and ON-REMOVE for nodes that have been removed."
       (funcall on-change old new))
     (diff-children (origami-fold-children old)
                    (origami-fold-children new))))
-
 
 (defun origami-fold-postorder-each (node f)
   (-each (origami-fold-children node) f)
