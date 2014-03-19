@@ -4,7 +4,7 @@
 ;; Version: 1.0
 ;; Keywords: folding
 ;; URL: https://github.com/gregsexton/
-;; Package-Requires: ((emacs "24"))
+;; Package-Requires: ((s "1.9.0") (dash "2.5.0") (emacs "24"))
 
 ;; The MIT License (MIT)
 
@@ -32,7 +32,8 @@
 
 ;;; Code:
 
-;;; customisation
+(require 'dash)
+(require 's)
 
 ;;; fold structure
 
@@ -59,15 +60,16 @@ used to nil out data. This mutates the node."
       (aset node 4 data)
     (aref node 4)))
 
-(defun origami-fold-open-set (node value)
-  (origami-fold-node (origami-fold-beg node)
-                     (origami-fold-end node)
-                     value
-                     (origami-fold-children node)
-                     (origami-fold-data node)))
+;;; need to rewrite the fold tree structure from the node downwards
+;; (defun origami-fold-open-set (node value)
+;;   (origami-fold-node (origami-fold-beg node)
+;;                      (origami-fold-end node)
+;;                      value
+;;                      (origami-fold-children node)
+;;                      (origami-fold-data node)))
 
-(defun origami-fold-open-toggle (node)
-  (origami-fold-open-set node (not (origami-fold-open-p node))))
+;; (defun origami-fold-open-toggle (node)
+;;   (origami-fold-open-set node (not (origami-fold-open-p node))))
 
 (defun origami-fold-range-equal (a b)
   (and (equal (origami-fold-beg a) (origami-fold-beg b))
@@ -77,8 +79,6 @@ used to nil out data. This mutates the node."
   (equal (origami-fold-open-p a) (origami-fold-open-p b)))
 
 (defun origami-fold-diff (old new on-add on-remove on-change)
-  "Diff the two structures calling ON-ADD for nodes that have
-been added and ON-REMOVE for nodes that have been removed."
   (cl-labels ((diff-children (old-children new-children)
                              (let ((old (car old-children))
                                    (new (car new-children)))
@@ -142,6 +142,74 @@ been added and ON-REMOVE for nodes that have been removed."
 (defun origami-remove-all-overlays (buffer)
   ;; TODO:
   )
+
+;;; content structure
+
+(defun origami-content (consumed string)
+  "Create a content structure from STRING and the count of CONSUMED characters."
+  (cons consumed string))
+
+(defun origami-content-consumed-count (content) (car content))
+
+(defun origami-content-string (content) (cdr content))
+
+(defun origami-content-from (content consumed)
+  "Create a new content after consuming CONSUMED chars."
+  (origami-content (+ (origami-content-consumed-count content) consumed)
+                   (substring (origami-content-string content) consumed)))
+
+;;; scanner
+
+(defun origami-scanner-bind (h f)
+  "State monad composed with the maybe monad."
+  (if (null h) nil
+    (lambda (s)
+      (let ((new-result (funcall h s)))
+        (if (null new-result) nil
+          (destructuring-bind (new-value . new-state) new-result
+            (funcall (funcall f new-value) new-state)))))))
+
+;;; TODO: reimplement this as a macro so that intermediate results are
+;;; visible. Basically implement proper do notation.
+(defun origami-scanner-bind-chain (scanner &rest funs)
+  (-reduce-from (lambda (acc f) (origami-scanner-bind acc f)) scanner funs))
+
+(defun origami-scanner-return (x)
+  (lambda (s) (cons x s)))
+
+(defun origami-run-scanner (scanner content)
+  (funcall scanner content))
+
+(defun origami-scan (buffer scanner)
+  (with-current-buffer buffer
+    (let ((contents (buffer-string)))
+      (origami-run-scanner scanner (origami-content 0 contents)))))
+
+(defun origami-scanner-consume (prefix content)
+  (lambda (state)
+    (when (s-prefix-p prefix (origami-content-string content))
+      (cons (origami-content-from content (length prefix)) state))))
+
+(defun origami-pair-scanner (start end skip)
+  (lambda (content)
+    (origami-scanner-bind-chain
+     (origami-scanner-consume start content)
+     ;; skip
+     (lambda (skip-content) (origami-scanner-consume end skip-content))
+     (lambda (new-content)
+       (lambda (state)
+         (cons new-content (cons (list (origami-content-consumed-count content)
+                                       (origami-content-consumed-count new-content))
+                                 state)))))))
+
+;;; TODO: maybe scan and build up a simple list of (start end) values,
+;;; in the next pass transform this in to the proper fold structure?
+
+(origami-run-scanner
+ (origami-scanner-bind
+  (origami-scanner-return (origami-content 0 "{}"))
+  (origami-pair-scanner "{" "}" nil))
+ 'foo) ;=> ((2 . "") . foo)
 
 ;;; commands
 
