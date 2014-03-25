@@ -158,58 +158,76 @@ used to nil out data. This mutates the node."
   (origami-content (+ (origami-content-consumed-count content) consumed)
                    (substring (origami-content-string content) consumed)))
 
-;;; scanner
+;;; parser
 
-(defun origami-scanner-bind (h f)
+(defun origami-run-parser (parser content)
+  (funcall parser content))
+
+(defun origami-parser-bind (m f)
   "State monad composed with the maybe monad."
-  (if (null h) nil
+  (if (null m) nil
     (lambda (s)
-      (let ((new-result (funcall h s)))
+      (let ((new-result (origami-run-parser m s)))
         (if (null new-result) nil
           (destructuring-bind (new-value . new-state) new-result
-            (funcall (funcall f new-value) new-state)))))))
+            (origami-run-parser (funcall f new-value) new-state)))))))
 
-;;; TODO: reimplement this as a macro so that intermediate results are
-;;; visible. Basically implement proper do notation.
-(defun origami-scanner-bind-chain (scanner &rest funs)
-  (-reduce-from (lambda (acc f) (origami-scanner-bind acc f)) scanner funs))
+(defmacro origami-do (expr &rest more)
+  (let ((assignment-p (and (listp expr) (equal (cadr expr) '<-))))
+    (let ((var (if assignment-p (car expr) (gensym)))
+          (f (if assignment-p (caddr expr) expr)))
+      (if more
+          `(origami-parser-bind
+            ,f (lambda (,var)
+                 (origami-do ,@more)))
+        f))))
 
-(defun origami-scanner-return (x)
+(defun origami-parser-return (x)
   (lambda (s) (cons x s)))
 
-(defun origami-run-scanner (scanner content)
-  (funcall scanner content))
+(defun origami-parser-zero ()
+  (lambda (s) nil))
 
-(defun origami-scan (buffer scanner)
+(defun origami-parser-get ()
+  (lambda (s) (cons s s)))
+
+(defun origami-parser-item ()
+  (lambda (content)
+    (let ((content-str (origami-content-string content)))
+      (unless (s-blank? content-str)
+        (cons (substring content-str 0 1) (origami-content-from content 1))))))
+
+(defun origami-parser-position ()
+  (origami-do (content <- (origami-parser-get))
+              (origami-parser-return (origami-content-consumed-count content))))
+
+(defun origami-parser-sat (p)
+  (origami-do (pos <- (origami-parser-position))
+              (a <- (origami-parser-item))
+              (if (funcall p a)
+                  (origami-parser-return pos)
+                (origami-parser-zero))))
+
+(defun origami-parser-char (x)
+  (origami-parser-sat (lambda (c) (equal x c))))
+
+(defun origami-parser-paired (start end children)
+  (origami-do (begin <- start)
+              (children <- children)
+              (end <- end)
+              (origami-parser-return (origami-fold-node begin end t children))))
+
+(origami-run-parser
+ (origami-parser-paired (origami-parser-char "{")
+                        (origami-parser-char "}")
+                        (origami-parser-return nil))
+ (origami-content 7 "{}"))
+
+;;; TODO: rework this
+(defun origami-parse (buffer parser)
   (with-current-buffer buffer
     (let ((contents (buffer-string)))
-      (origami-run-scanner scanner (origami-content 0 contents)))))
-
-(defun origami-scanner-consume (prefix content)
-  (lambda (state)
-    (when (s-prefix-p prefix (origami-content-string content))
-      (cons (origami-content-from content (length prefix)) state))))
-
-(defun origami-pair-scanner (start end skip)
-  (lambda (content)
-    (origami-scanner-bind-chain
-     (origami-scanner-consume start content)
-     ;; skip
-     (lambda (skip-content) (origami-scanner-consume end skip-content))
-     (lambda (new-content)
-       (lambda (state)
-         (cons new-content (cons (list (origami-content-consumed-count content)
-                                       (origami-content-consumed-count new-content))
-                                 state)))))))
-
-;;; TODO: maybe scan and build up a simple list of (start end) values,
-;;; in the next pass transform this in to the proper fold structure?
-
-(origami-run-scanner
- (origami-scanner-bind
-  (origami-scanner-return (origami-content 0 "{}"))
-  (origami-pair-scanner "{" "}" nil))
- 'foo) ;=> ((2 . "") . foo)
+      (origami-run-parser parser (origami-content 0 contents)))))
 
 ;;; commands
 
