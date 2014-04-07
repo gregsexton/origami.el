@@ -217,17 +217,29 @@ used to nil out data. This mutates the node."
               (end <- end)
               (origami-parser-return (origami-fold-node begin end t children))))
 
+(defun origami-parser-many (p)
+  ;; recursive isn't going to cut it in elisp
+  (lambda (content)
+    (let ((res (origami-run-parser p content))
+          (acc nil))
+      (while res
+        (setq acc (cons (car res) acc))
+        (setq res (origami-run-parser p (cdr res))))
+      (reverse acc))))
+
 (origami-run-parser
- (origami-parser-paired (origami-parser-char "{")
-                        (origami-parser-char "}")
-                        (origami-parser-return nil))
- (origami-content 7 "{}"))
+ (origami-parser-many (origami-parser-paired (origami-parser-char "{")
+                                             (origami-parser-char "}")
+                                             (origami-parser-return nil)))
+ (origami-content 7 "{}{}{}{}{}"))
 
 ;;; TODO: rework this
 (defun origami-parse (buffer parser)
   (with-current-buffer buffer
     (let ((contents (buffer-string)))
       (origami-run-parser parser (origami-content 0 contents)))))
+
+;;; dsl
 
 ;;; commands
 
