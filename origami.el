@@ -227,6 +227,11 @@ used to nil out data. This mutates the node."
         (setq res (origami-run-parser p (cdr res))))
       (reverse acc))))
 
+(defun origami-parser-conj (p1 p2)
+  (lambda (content)
+    (or (origami-run-parser p1 content)
+        (origami-run-parser p2 content))))
+
 (origami-run-parser
  (origami-parser-many (origami-parser-paired (origami-parser-char "{")
                                              (origami-parser-char "}")
