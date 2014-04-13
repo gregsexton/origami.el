@@ -201,42 +201,65 @@ used to nil out data. This mutates the node."
   (origami-do (content <- (origami-parser-get))
               (origami-parser-return (origami-content-consumed-count content))))
 
-(defun origami-parser-sat (p)
+(defun origami-parser-sat (pred)
   (origami-do (pos <- (origami-parser-position))
               (a <- (origami-parser-item))
-              (if (funcall p a)
+              (if (funcall pred a)
                   (origami-parser-return pos)
                 (origami-parser-zero))))
 
 (defun origami-parser-char (x)
   (origami-parser-sat (lambda (c) (equal x c))))
 
-(defun origami-parser-paired (start end children)
-  (origami-do (begin <- start)
-              (children <- children)
-              (end <- end)
-              (origami-parser-return (origami-fold-node begin end t children))))
+(defun origami-parser-conj (p1 p2)
+  (lambda (content)
+    (or (origami-run-parser p1 content)
+        (origami-run-parser p2 content))))
 
-(defun origami-parser-many (p)
+(defun origami-parser-0+ (p)
+  (origami-parser-conj
+   (origami-parser-1+ p)
+   (origami-parser-return nil)))
+
+(defun origami-parser-1+ (p)
   ;; recursive isn't going to cut it in elisp
   (lambda (content)
     (let ((res (origami-run-parser p content))
           (acc nil))
       (while res
         (setq acc (cons (car res) acc))
-        (setq res (origami-run-parser p (cdr res))))
-      (reverse acc))))
+        (setq content (cdr res))
+        (setq res (origami-run-parser p content)))
+      (when acc
+        (cons (reverse acc) content)))))
 
-(defun origami-parser-conj (p1 p2)
-  (lambda (content)
-    (or (origami-run-parser p1 content)
-        (origami-run-parser p2 content))))
+(defun origami-parser-1? (p)
+  (origami-parser-conj p (origami-parser-return nil)))
+
+(defun origami-parser-paired (start end children)
+  (origami-do (begin <- start)
+              (children <- (origami-parser-0+ children))
+              (end <- end)
+              (origami-parser-return (origami-fold-node begin end t children))))
+
+(defun origami-parser-consume-while (pred)
+  (origami-do (positions <- (origami-parser-1+ (origami-parser-sat pred)))
+              (origami-parser-return (car (last positions)))))
 
 (origami-run-parser
- (origami-parser-many (origami-parser-paired (origami-parser-char "{")
-                                             (origami-parser-char "}")
-                                             (origami-parser-return nil)))
- (origami-content 7 "{}{}{}{}{}"))
+ (origami-parser-0+ (origami-do
+                     (origami-parser-consume-while (lambda (x)
+                                                     (not (equal x "{"))))
+                     (origami-parser-paired (origami-parser-char "{")
+                                            (origami-parser-char "}")
+                                            (origami-do
+                                             (origami-parser-consume-while (lambda (x) (and (not (equal x "}"))
+                                                                                            (not (equal x "{")))))
+                                             (origami-parser-1?
+                                              (origami-parser-paired (origami-parser-char "{")
+                                                                     (origami-parser-char "}")
+                                                                     (origami-parser-zero)))))))
+ (origami-content 7 "  { {}   }   { } "))
 
 ;;; TODO: rework this
 (defun origami-parse (buffer parser)
