@@ -51,7 +51,14 @@
 
 (defun origami-fold-open-p (node) (aref node 2))
 
-(defun origami-fold-children (node) (aref node 3))
+(defun origami-fold-children (node &optional children)
+  (if children
+      (origami-fold-node (origami-fold-beg node)
+                         (origami-fold-end node)
+                         (origami-fold-open-p node)
+                         children
+                         (origami-fold-data data))
+    (aref node 3)))
 
 (defun origami-fold-data (node &optional data)
   "With optional param DATA, add or replace data. This cannot be
@@ -60,16 +67,13 @@ used to nil out data. This mutates the node."
       (aset node 4 data)
     (aref node 4)))
 
-;;; need to rewrite the fold tree structure from the node downwards
-;; (defun origami-fold-open-set (node value)
-;;   (origami-fold-node (origami-fold-beg node)
-;;                      (origami-fold-end node)
-;;                      value
-;;                      (origami-fold-children node)
-;;                      (origami-fold-data node)))
-
-;; (defun origami-fold-open-toggle (node)
-;;   (origami-fold-open-set node (not (origami-fold-open-p node))))
+(defun origami-fold-open-set (path value)
+  ;; TODO:
+  (origami-fold-node (origami-fold-beg node)
+                     (origami-fold-end node)
+                     value
+                     (origami-fold-children node)
+                     (origami-fold-data node)))
 
 (defun origami-fold-range-equal (a b)
   (and (equal (origami-fold-beg a) (origami-fold-beg b))
@@ -77,6 +81,13 @@ used to nil out data. This mutates the node."
 
 (defun origami-fold-state-equal (a b)
   (equal (origami-fold-open-p a) (origami-fold-open-p b)))
+
+(defun origami-fold-assoc (path new-node)
+  "Rewrite the tree, replacing the node referenced by path with NEW-NODE"
+  (-reduce-r-from (lambda (node acc)
+                    (origami-fold-children node acc))
+                  new-node
+                  (butlast path)))
 
 (defun origami-fold-diff (old new on-add on-remove on-change)
   (cl-labels ((diff-children (old-children new-children)
@@ -158,7 +169,7 @@ used to nil out data. This mutates the node."
   (origami-content (+ (origami-content-consumed-count content) consumed)
                    (substring (origami-content-string content) consumed)))
 
-;;; parser
+;;; monadic parser combinator
 
 (defun origami-run-parser (parser content)
   (funcall parser content))
@@ -246,30 +257,70 @@ used to nil out data. This mutates the node."
   (origami-do (positions <- (origami-parser-1+ (origami-parser-sat pred)))
               (origami-parser-return (car (last positions)))))
 
-(origami-run-parser
- (origami-parser-0+ (origami-do
-                     (origami-parser-consume-while (lambda (x)
-                                                     (not (equal x "{"))))
-                     (origami-parser-paired (origami-parser-char "{")
-                                            (origami-parser-char "}")
-                                            (origami-do
-                                             (origami-parser-consume-while (lambda (x) (and (not (equal x "}"))
-                                                                                            (not (equal x "{")))))
-                                             (origami-parser-1?
-                                              (origami-parser-paired (origami-parser-char "{")
-                                                                     (origami-parser-char "}")
-                                                                     (origami-parser-zero)))))))
- (origami-content 7 "  { {}   }   { } "))
+;;; TODO: always need to parse to max nesting, even if some of it gets ignored
 
-;;; TODO: rework this
-(defun origami-parse (buffer parser)
-  (with-current-buffer buffer
-    (let ((contents (buffer-string)))
-      (origami-run-parser parser (origami-content 0 contents)))))
+;;; interactive utils
+
+(defun origami-get-cached-tree (buffer)
+  ;; TODO:
+  )
+
+(defun origami-store-cached-tree (buffer tree)
+  ;; TODO:
+  )
+
+(defun origami-build-tree (buffer parser)
+  (when parser
+    (with-current-buffer buffer
+      (let ((contents (buffer-string)))
+        (origami-run-parser parser (origami-content 0 contents))))))
+
+(defun origami-get-parser (buffer)
+  ;; TODO: remove hardcoding!
+  (origami-parser-0+ (origami-do
+                      (origami-parser-consume-while (lambda (x)
+                                                      (not (equal x "{"))))
+                      (origami-parser-paired (origami-parser-char "{")
+                                             (origami-parser-char "}")
+                                             (origami-do
+                                              (origami-parser-consume-while (lambda (x) (and (not (equal x "}"))
+                                                                                             (not (equal x "{")))))
+                                              (origami-parser-1?
+                                               (origami-parser-paired (origami-parser-char "{")
+                                                                      (origami-parser-char "}")
+                                                                      (origami-parser-zero))))))))
+
+(defun origami-get-fold-tree (buffer)
+  "Facade. Build the tree if it hasn't already been built
+otherwise fetch cached tree."
+  (or (origami-get-cached-tree buffer)
+      (origami-build-tree buffer
+                          (origami-get-parser buffer))
+      ;; TODO: cache built tree
+      ))
 
 ;;; dsl
 
-;;; commands
+ ;;; commands
+
+;;; TODO: should ensure that minor mode is enabled?
+;;; TODO: extract common pattern
+
+(defun origami-open-node (buffer point)
+  (interactive (list (current-buffer) (point)))
+  (let ((tree (origami-get-fold-tree buffer)))
+    (-when-let (path (origami-fold-find-node-containing tree point))
+      ;; TODO: don't actually compute + apply the diff
+      (origami-store-cached-tree buffer
+                                 (origami-fold-open-set path t)))))
+
+(defun origami-close-node (point)
+  (interactive (list (current-buffer) (point)))
+  (let ((tree (origami-get-fold-tree buffer)))
+    (-when-let (path (origami-fold-find-node-containing tree point))
+      (origami-fold-open-set path nil))))
+
+(defun origami-toggle-node (point))
 
 (defun origami-reset (buffer)
   ;; TODO: provide this to the user in case we get screwed up, maybe
@@ -278,5 +329,7 @@ used to nil out data. This mutates the node."
   (origami-remove-all-overlays buffer)
   ;; TODO: remove fold ds
   )
+
+;;; minor mode
 
 ;;; origami.el ends here
