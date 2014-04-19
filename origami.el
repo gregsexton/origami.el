@@ -414,7 +414,18 @@ otherwise fetch cached tree."
                          (origami-delete-overlay-from-fold-tree-fn buffer)
                          (origami-change-overlay-from-fold-node-fn buffer)))))
 
-(defun origami-toggle-node (buffer point))
+(defun origami-toggle-node (buffer point)
+  (interactive (list (current-buffer) (point)))
+  (let ((tree (origami-get-fold-tree buffer)))
+    (-when-let (path (origami-fold-find-path-containing tree point))
+      (debug-msg "open path: %s" path)
+      (origami-fold-diff tree (origami-store-cached-tree buffer
+                                                         (origami-fold-open-set
+                                                          path
+                                                          (not (origami-fold-open-p (-last-item path)))))
+                         (origami-create-overlay-from-fold-tree-fn buffer)
+                         (origami-delete-overlay-from-fold-tree-fn buffer)
+                         (origami-change-overlay-from-fold-node-fn buffer)))))
 
 (defun origami-reset (buffer)
   ;; TODO: provide this to the user in case we get screwed up, maybe
