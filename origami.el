@@ -38,42 +38,66 @@
 ;;; fold structure
 
 (defun origami-fold-node (beg end open &optional children data)
-  ;; TODO: ensure invariant: sort children and ensure that none
-  ;; overlap
-  (vector beg end open children data))
+  (let ((sorted-children (-sort (lambda (a b)
+                                  (or (< (origami-fold-beg a) (origami-fold-beg b))
+                                      (and (= (origami-fold-beg a) (origami-fold-beg b))
+                                           (< (origami-fold-end a) (origami-fold-end b)))))
+                                children)))
+    ;; ensure invariant: no children overlap
+    (when (-some? (lambda (pair)
+                    (let ((a (car pair))
+                          (b (cadr pair)))
+                      (when b ;for the odd numbered case - there may be a single item
+                        ;; the < function doesn't support varargs
+                        (or (>= (origami-fold-beg a) (origami-fold-end a))
+                            (>= (origami-fold-end a) (origami-fold-beg b))
+                            (>= (origami-fold-beg b) (origami-fold-end b))))))
+                  (-partition-all-in-steps 2 1 sorted-children))
+      (error "Tried to construct a node where the children overlap or are not distinct regions: %s"
+             sorted-children))
+    ;; ensure invariant: parent encompases children
+    (let ((beg-children (origami-fold-beg (car sorted-children)))
+          (end-children (origami-fold-end (-last-item sorted-children))))
+      (if (and beg-children (or (> beg beg-children) (< end end-children)))
+          (error "Node does not overlap children in range. beg=%s end=%s beg-children=%s end-children=%s"
+               beg end beg-children end-children)
+        (vector beg end open sorted-children data)))))
 
-(defun origami-top-level-node (&optional children)
+(defun origami-fold-top-level-node (&optional children)
   (origami-fold-node 0 0 t children))
 
-(defun origami-fold-beg (node) (aref node 0))
+(defun origami-fold-beg (node) (when node (aref node 0)))
 
-(defun origami-fold-end (node) (aref node 1))
+(defun origami-fold-end (node) (when node (aref node 1)))
 
-(defun origami-fold-open-p (node) (aref node 2))
+(defun origami-fold-open-p (node) (when node (aref node 2)))
 
 (defun origami-fold-children (node &optional children)
-  (if children
-      (origami-fold-node (origami-fold-beg node)
-                         (origami-fold-end node)
-                         (origami-fold-open-p node)
-                         children
-                         (origami-fold-data data))
-    (aref node 3)))
+  (when node
+    (if children
+        (origami-fold-node (origami-fold-beg node)
+                           (origami-fold-end node)
+                           (origami-fold-open-p node)
+                           children
+                           (origami-fold-data node))
+      (aref node 3))))
 
 (defun origami-fold-data (node &optional data)
   "With optional param DATA, add or replace data. This cannot be
 used to nil out data. This mutates the node."
-  (if data
-      (aset node 4 data)
-    (aref node 4)))
+  (when node
+    (if data
+        (aset node 4 data)
+      (aref node 4))))
 
 (defun origami-fold-open-set (path value)
-  ;; TODO:
-  (origami-fold-node (origami-fold-beg node)
-                     (origami-fold-end node)
-                     value
-                     (origami-fold-children node)
-                     (origami-fold-data node)))
+  (let* ((old-node (-last-item path))
+         (new-node (origami-fold-node (origami-fold-beg old-node)
+                                      (origami-fold-end old-node)
+                                      value
+                                      (origami-fold-children old-node)
+                                      (origami-fold-data old-node))))
+    (origami-fold-assoc path new-node)))
 
 (defun origami-fold-range-equal (a b)
   (and (equal (origami-fold-beg a) (origami-fold-beg b))
@@ -82,12 +106,18 @@ used to nil out data. This mutates the node."
 (defun origami-fold-state-equal (a b)
   (equal (origami-fold-open-p a) (origami-fold-open-p b)))
 
+(defun origami-fold-replace-child (node old new)
+  (origami-fold-children node
+                         (cons new (remove old (origami-fold-children node)))))
+
 (defun origami-fold-assoc (path new-node)
   "Rewrite the tree, replacing the node referenced by path with NEW-NODE"
-  (-reduce-r-from (lambda (node acc)
-                    (origami-fold-children node acc))
-                  new-node
-                  (butlast path)))
+  (cdr
+   (-reduce-r-from (lambda (node acc)
+                     (destructuring-bind (old-node . new-node) acc
+                       (cons node (origami-fold-replace-child node old-node new-node))))
+                   (cons (-last-item path) new-node)
+                   (butlast path))))
 
 (defun origami-fold-diff (old new on-add on-remove on-change)
   (cl-labels ((diff-children (old-children new-children)
