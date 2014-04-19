@@ -365,9 +365,9 @@ consumed count."
 
 (defun origami-was-previously-open? (tree)
   (lambda (beg end)
-    (-> (origami-fold-find-node-with-range tree beg end)
-      -last-item
-      origami-fold-open-p)))
+    (-if-let (node (-last-item (origami-fold-find-node-with-range tree beg end)))
+        (origami-fold-open-p node)
+      t)))
 
 (defun origami-previous-data (tree)
   (lambda (beg end)
