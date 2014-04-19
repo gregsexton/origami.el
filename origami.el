@@ -153,7 +153,7 @@ used to nil out data. This mutates the node."
           (cons tree (origami-fold-find-deepest child pred))
         (list tree)))))
 
-(defun origami-fold-find-node-with-range (tree beg end)
+(defun origami-fold-find-path-with-range (tree beg end)
   "Return the path to the most specific (deepest) node that has
 exactly the range BEG-END, or null."
   (-when-let (path (origami-fold-find-deepest tree
@@ -165,7 +165,7 @@ exactly the range BEG-END, or null."
                  (= end (origami-fold-end last)))
         path))))
 
-(defun origami-fold-find-node-containing (tree point)
+(defun origami-fold-find-path-containing (tree point)
   "Return the path to the most specific (deepest) node that
 contains point, or null."
   (origami-fold-find-deepest tree
@@ -365,13 +365,13 @@ consumed count."
 
 (defun origami-was-previously-open? (tree)
   (lambda (beg end)
-    (-if-let (node (-last-item (origami-fold-find-node-with-range tree beg end)))
+    (-if-let (node (-last-item (origami-fold-find-path-with-range tree beg end)))
         (origami-fold-open-p node)
       t)))
 
 (defun origami-previous-data (tree)
   (lambda (beg end)
-    (-> (origami-fold-find-node-with-range tree beg end)
+    (-> (origami-fold-find-path-with-range tree beg end)
       -last-item
       origami-fold-data)))
 
@@ -396,7 +396,7 @@ otherwise fetch cached tree."
 (defun origami-open-node (buffer point)
   (interactive (list (current-buffer) (point)))
   (let ((tree (origami-get-fold-tree buffer)))
-    (-when-let (path (origami-fold-find-node-containing tree point))
+    (-when-let (path (origami-fold-find-path-containing tree point))
       (debug-msg "open path: %s" path)
       (origami-fold-diff tree (origami-store-cached-tree buffer
                                                          (origami-fold-open-set path t))
@@ -407,7 +407,7 @@ otherwise fetch cached tree."
 (defun origami-close-node (buffer point)
   (interactive (list (current-buffer) (point)))
   (let ((tree (origami-get-fold-tree buffer)))
-    (-when-let (path (origami-fold-find-node-containing tree point))
+    (-when-let (path (origami-fold-find-path-containing tree point))
       (origami-fold-diff tree (origami-store-cached-tree buffer
                                                          (origami-fold-open-set path nil))
                          (origami-create-overlay-from-fold-tree-fn buffer)
