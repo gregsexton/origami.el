@@ -176,12 +176,13 @@ contains point, or null."
 ;;; overlay manipulation
 
 (defun origami-create-overlay (beg end buffer text)
-  (let ((ov (make-overlay beg end buffer)))
-    (overlay-put ov 'invisible 'origami)
-    ;; TODO: make this customizable
-    (overlay-put ov 'display text)
-    (overlay-put ov 'face 'font-lock-comment-delimiter-face)
-    ov))
+  (when (> (- end beg) 0)
+    (let ((ov (make-overlay (+ beg 1) end buffer)))
+      (overlay-put ov 'invisible 'origami)
+      ;; TODO: make this customizable
+      (overlay-put ov 'display text)
+      (overlay-put ov 'face 'font-lock-comment-delimiter-face)
+      ov)))
 
 (defun origami-create-overlay-for-node (node buffer)
   (let ((overlay (origami-create-overlay (origami-fold-beg node)
@@ -417,7 +418,8 @@ otherwise fetch cached tree."
 
 (defun origami-reset (buffer)
   ;; TODO: provide this to the user in case we get screwed up, maybe
-  ;; use this when disabling the minor mode?
+  ;; use this when disabling the minor mode? Could possibly diff
+  ;; against null?
   (interactive)
   (origami-remove-all-overlays buffer)
   ;; TODO: remove fold ds
