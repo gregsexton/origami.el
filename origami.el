@@ -64,13 +64,23 @@
         (vector beg end open sorted-children data)))))
 
 (defun origami-fold-top-level-node (&optional children)
-  (origami-fold-node 0 0 t children))
+  ;; TODO: fix min and max
+  (origami-fold-node 0 10000 t children))
 
 (defun origami-fold-beg (node) (when node (aref node 0)))
 
 (defun origami-fold-end (node) (when node (aref node 1)))
 
 (defun origami-fold-open-p (node) (when node (aref node 2)))
+
+(defun origami-fold-open-set (path value)
+  (let* ((old-node (-last-item path))
+         (new-node (origami-fold-node (origami-fold-beg old-node)
+                                      (origami-fold-end old-node)
+                                      value
+                                      (origami-fold-children old-node)
+                                      (origami-fold-data old-node))))
+    (origami-fold-assoc path new-node)))
 
 (defun origami-fold-children (node &optional children)
   (when node
@@ -89,15 +99,6 @@ used to nil out data. This mutates the node."
     (if data
         (aset node 4 data)
       (aref node 4))))
-
-(defun origami-fold-open-set (path value)
-  (let* ((old-node (-last-item path))
-         (new-node (origami-fold-node (origami-fold-beg old-node)
-                                      (origami-fold-end old-node)
-                                      value
-                                      (origami-fold-children old-node)
-                                      (origami-fold-data old-node))))
-    (origami-fold-assoc path new-node)))
 
 (defun origami-fold-range-equal (a b)
   (and (equal (origami-fold-beg a) (origami-fold-beg b))
@@ -144,6 +145,21 @@ used to nil out data. This mutates the node."
 (defun origami-fold-postorder-each (node f)
   (-each (origami-fold-children node) f)
   (funcall f node))
+
+(defun origami-fold-find-node-containing (tree point)
+  "Return the path to the most specific (deepest) node that
+contains point, or null."
+  (cl-labels
+      ((node-contains? (point node)
+                       (and (<= (origami-fold-beg node) point)
+                            (>= (origami-fold-end node) point)))
+       (get-child-containing (children point)
+                             (-first (lambda (n) (node-contains? point n)) children)))
+    (when tree
+      (when (node-contains? point tree)
+        (-if-let (child (get-child-containing (origami-fold-children tree) point))
+            (cons tree (origami-fold-find-node-containing child point))
+          (list tree))))))
 
 ;;; overlay manipulation
 
@@ -297,13 +313,16 @@ used to nil out data. This mutates the node."
 
 (defun origami-store-cached-tree (buffer tree)
   ;; TODO:
-  )
+  tree)
 
 (defun origami-build-tree (buffer parser)
   (when parser
     (with-current-buffer buffer
       (let ((contents (buffer-string)))
-        (origami-run-parser parser (origami-content 0 contents))))))
+        (-> parser
+          (origami-run-parser (origami-content 0 contents))
+          car
+          origami-fold-top-level-node)))))
 
 (defun origami-get-parser (buffer)
   ;; TODO: remove hardcoding!
@@ -339,8 +358,10 @@ otherwise fetch cached tree."
 (defun origami-open-node (buffer point)
   (interactive (list (current-buffer) (point)))
   (let ((tree (origami-get-fold-tree buffer)))
+    (debug-msg "tree: %s" tree)
     (-when-let (path (origami-fold-find-node-containing tree point))
       ;; TODO: don't actually compute + apply the diff
+      (debug-msg "path: %s" path)
       (origami-store-cached-tree buffer
                                  (origami-fold-open-set path t)))))
 
