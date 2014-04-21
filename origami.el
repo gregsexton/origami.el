@@ -210,8 +210,8 @@ contains point, or null."
       (origami-create-overlay-for-node new buffer))))
 
 (defun origami-remove-all-overlays (buffer)
-  ;; TODO:
-  )
+  (with-current-buffer buffer
+    (remove-overlays (point-min) (point-max) 'invisible 'origami)))
 
 ;;; content structure
 
@@ -431,10 +431,13 @@ otherwise fetch cached tree."
   ;; TODO: provide this to the user in case we get screwed up, maybe
   ;; use this when disabling the minor mode? Could possibly diff
   ;; against null?
-  (interactive)
-  (origami-remove-all-overlays buffer)
-  ;; TODO: remove fold ds
-  )
+  (interactive (list (current-buffer)))
+  (let ((tree (origami-get-fold-tree buffer)))
+    (origami-fold-diff tree (origami-store-cached-tree buffer (origami-fold-top-level-node))
+                       (origami-create-overlay-from-fold-tree-fn buffer)
+                       (origami-delete-overlay-from-fold-tree-fn buffer)
+                       (origami-change-overlay-from-fold-node-fn buffer)))
+  (origami-remove-all-overlays buffer))
 
 ;;; minor mode
 
