@@ -76,15 +76,17 @@
 (defun origami-fold-open-p (node) (when node (aref node 2)))
 
 (defun origami-fold-open-set (path value)
-  (let* ((old-node (-last-item path))
-         (new-node (origami-fold-node (origami-fold-beg old-node)
-                                      (origami-fold-end old-node)
-                                      value
-                                      (origami-fold-children old-node)
-                                      (origami-fold-data old-node))))
-    (if (origami-fold-is-root-node? old-node)  ;can't change the state of the root node
-        old-node
-      (origami-fold-assoc path new-node))))
+  "Set all nodes in PATH to VALUE. This operation only really
+makes sense to do for a path from the root node."
+  (origami-fold-path-map (lambda (node)
+                           (if (origami-fold-is-root-node? node)
+                               node
+                             (origami-fold-node (origami-fold-beg node)
+                                                (origami-fold-end node)
+                                                value
+                                                (origami-fold-children node)
+                                                (origami-fold-data node))))
+                         path))
 
 (defun origami-fold-children (node) (when node (aref node 3)))
 
@@ -116,7 +118,8 @@ used to nil out data. This mutates the node."
                              (cons new (remove old (origami-fold-children node)))))
 
 (defun origami-fold-assoc (path new-node)
-  "Rewrite the tree, replacing the node referenced by path with NEW-NODE"
+  "Rewrite the tree, replacing the node referenced by PATH with
+NEW-NODE"
   (cdr
    (-reduce-r-from (lambda (node acc)
                      (destructuring-bind (old-node . new-node) acc
@@ -159,6 +162,15 @@ the state of each node."
    (funcall f tree)
    (-map (lambda (node) (origami-fold-map f node))
          (origami-fold-children tree))))
+
+(defun origami-fold-path-map (f path)
+  "Map F over the nodes in path. As with `origami-fold-map',
+children cannot be manipulated."
+  (cond ((null path) nil)
+        ((cdr path) (funcall f (origami-fold-replace-child (car path)
+                                                           (cadr path)
+                                                           (origami-fold-path-map f (cdr path)))))
+        (t (funcall f (car path)))))
 
 (defun origami-fold-find-deepest (tree pred)
   (when tree
@@ -371,9 +383,14 @@ consumed count."
                                               (origami-parser-consume-while (lambda (x) (and (not (equal x "}"))
                                                                                              (not (equal x "{")))))
                                               (origami-parser-1?
-                                               (origami-parser-paired (origami-parser-char "{")
-                                                                      (origami-parser-char "}")
-                                                                      (origami-parser-zero) is-open data)))
+                                               (origami-parser-paired
+                                                (origami-parser-char "{")
+                                                (origami-parser-char "}")
+                                                (origami-do
+                                                 (origami-parser-consume-while (lambda (x) (and (not (equal x "}"))
+                                                                                                (not (equal x "{")))))
+                                                 (origami-parser-return nil))
+                                                is-open data)))
                                              is-open data))))
 
 (defun origami-was-previously-open? (tree)
@@ -463,6 +480,11 @@ otherwise fetch cached tree."
                        (origami-create-overlay-from-fold-tree-fn buffer)
                        (origami-delete-overlay-from-fold-tree-fn buffer)
                        (origami-change-overlay-from-fold-node-fn buffer))))
+
+(defun origami-show-only-node (buffer point)
+  (interactive (list (current-buffer) (point)))
+  (origami-close-all-nodes buffer)
+  (origami-open-node buffer point))
 
 (defun origami-reset (buffer)
   (interactive (list (current-buffer)))
