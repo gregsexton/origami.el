@@ -420,7 +420,7 @@ otherwise fetch cached tree."
 
 ;;; dsl
 
- ;;; commands
+;;; commands
 
 ;;; TODO: should ensure that minor mode is enabled?
 ;;; TODO: extract common pattern
