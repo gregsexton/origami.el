@@ -75,18 +75,15 @@
 
 (defun origami-fold-open-p (node) (when node (aref node 2)))
 
-(defun origami-fold-open-set (path value)
-  "Set all nodes in PATH to VALUE. This operation only really
-makes sense to do for a path from the root node."
-  (origami-fold-path-map (lambda (node)
-                           (if (origami-fold-is-root-node? node)
-                               node
-                             (origami-fold-node (origami-fold-beg node)
-                                                (origami-fold-end node)
-                                                value
-                                                (origami-fold-children node)
-                                                (origami-fold-data node))))
-                         path))
+(defun origami-fold-open-set (node value)
+  (when node
+    (if (origami-fold-is-root-node? node)
+        node
+      (origami-fold-node (origami-fold-beg node)
+                         (origami-fold-end node)
+                         value
+                         (origami-fold-children node)
+                         (origami-fold-data node)))))
 
 (defun origami-fold-children (node) (when node (aref node 3)))
 
@@ -117,14 +114,14 @@ used to nil out data. This mutates the node."
   (origami-fold-children-set node
                              (cons new (remove old (origami-fold-children node)))))
 
-(defun origami-fold-assoc (path new-node)
+(defun origami-fold-assoc (path f)
   "Rewrite the tree, replacing the node referenced by PATH with
-NEW-NODE"
+F applied to the leaf."
   (cdr
    (-reduce-r-from (lambda (node acc)
                      (destructuring-bind (old-node . new-node) acc
                        (cons node (origami-fold-replace-child node old-node new-node))))
-                   (cons (-last-item path) new-node)
+                   (let ((leaf (-last-item path))) (cons leaf (funcall f leaf)))
                    (butlast path))))
 
 (defun origami-fold-diff (old new on-add on-remove on-change)
@@ -430,7 +427,24 @@ otherwise fetch cached tree."
   (let ((tree (origami-get-fold-tree buffer)))
     (-when-let (path (origami-fold-find-path-containing tree point))
       (origami-fold-diff tree (origami-store-cached-tree buffer
-                                                         (origami-fold-open-set path t))
+                                                         (origami-fold-assoc
+                                                          path (lambda (node)
+                                                                 (origami-fold-open-set node t))))
+                         (origami-create-overlay-from-fold-tree-fn buffer)
+                         (origami-delete-overlay-from-fold-tree-fn buffer)
+                         (origami-change-overlay-from-fold-node-fn buffer)))))
+
+(defun origami-show-node (buffer point)
+  "Like `origami-open-node' but opens parent nodes recursively so
+as to ensure seeing where POINT is."
+  (interactive (list (current-buffer) (point)))
+  (let ((tree (origami-get-fold-tree buffer)))
+    (-when-let (path (origami-fold-find-path-containing tree point))
+      (origami-fold-diff tree (origami-store-cached-tree buffer
+                                                         (origami-fold-path-map
+                                                          (lambda (node)
+                                                            (origami-fold-open-set node t))
+                                                          path))
                          (origami-create-overlay-from-fold-tree-fn buffer)
                          (origami-delete-overlay-from-fold-tree-fn buffer)
                          (origami-change-overlay-from-fold-node-fn buffer)))))
@@ -440,7 +454,9 @@ otherwise fetch cached tree."
   (let ((tree (origami-get-fold-tree buffer)))
     (-when-let (path (origami-fold-find-path-containing tree point))
       (origami-fold-diff tree (origami-store-cached-tree buffer
-                                                         (origami-fold-open-set path nil))
+                                                         (origami-fold-assoc
+                                                          path (lambda (node)
+                                                                 (origami-fold-open-set node nil))))
                          (origami-create-overlay-from-fold-tree-fn buffer)
                          (origami-delete-overlay-from-fold-tree-fn buffer)
                          (origami-change-overlay-from-fold-node-fn buffer)))))
@@ -450,9 +466,11 @@ otherwise fetch cached tree."
   (let ((tree (origami-get-fold-tree buffer)))
     (-when-let (path (origami-fold-find-path-containing tree point))
       (origami-fold-diff tree (origami-store-cached-tree buffer
-                                                         (origami-fold-open-set
-                                                          path
-                                                          (not (origami-fold-open-p (-last-item path)))))
+                                                         (origami-fold-assoc
+                                                          path (lambda (node)
+                                                                 (origami-fold-open-set
+                                                                  node (not (origami-fold-open-p
+                                                                             (-last-item path)))))))
                          (origami-create-overlay-from-fold-tree-fn buffer)
                          (origami-delete-overlay-from-fold-tree-fn buffer)
                          (origami-change-overlay-from-fold-node-fn buffer)))))
@@ -463,7 +481,7 @@ otherwise fetch cached tree."
     (origami-fold-diff tree (origami-store-cached-tree buffer
                                                        (origami-fold-map
                                                         (lambda (node)
-                                                          (origami-fold-open-set (list node) t))
+                                                          (origami-fold-open-set node t))
                                                         tree))
                        (origami-create-overlay-from-fold-tree-fn buffer)
                        (origami-delete-overlay-from-fold-tree-fn buffer)
@@ -475,7 +493,7 @@ otherwise fetch cached tree."
     (origami-fold-diff tree (origami-store-cached-tree buffer
                                                        (origami-fold-map
                                                         (lambda (node)
-                                                          (origami-fold-open-set (list node) nil))
+                                                          (origami-fold-open-set node nil))
                                                         tree))
                        (origami-create-overlay-from-fold-tree-fn buffer)
                        (origami-delete-overlay-from-fold-tree-fn buffer)
@@ -484,7 +502,7 @@ otherwise fetch cached tree."
 (defun origami-show-only-node (buffer point)
   (interactive (list (current-buffer) (point)))
   (origami-close-all-nodes buffer)
-  (origami-open-node buffer point))
+  (origami-show-node buffer point))
 
 (defun origami-reset (buffer)
   (interactive (list (current-buffer)))
