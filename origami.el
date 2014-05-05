@@ -200,6 +200,8 @@ contains point, or null."
 
 (defun origami-create-overlay (beg end buffer text)
   (when (> (- end beg) 0)
+    ;; TODO: adding 1 won't work for anything other than parsing at
+    ;; the char level -- see TODO further down too
     (let ((ov (make-overlay (+ beg 1) end buffer)))
       (overlay-put ov 'invisible 'origami)
       ;; TODO: make this customizable
@@ -341,6 +343,7 @@ consumed count."
                                                         (funcall data begin end)))))
 
 (defun origami-parser-consume-while (pred)
+  ;; TODO: this should really be 0+ but for some reason goes in to an infinte loop
   (origami-do (positions <- (origami-parser-1+ (origami-parser-sat pred)))
               (origami-parser-return (car (last positions)))))
 
@@ -352,8 +355,26 @@ consumed count."
 (defvar origami-tree (origami-fold-root-node))
 
 (defun origami-get-cached-tree (buffer)
-  ;; TODO:
-  origami-tree)
+  ;; update the tree based on any modifications to overlays since
+  ;; starting. This is our way of tracking updates to the buffer
+  ;; outside of origami.
+  (debug-msg "cached:")
+  (debug-msg
+   (origami-fold-map
+    (lambda (node)
+      (let ((overlay (origami-fold-data node)))
+        (if (overlayp overlay)
+            ;; TODO: decrementing here as that is the offset applied
+            ;; to the overlay. This needs fixing generally.
+            (origami-fold-node (or (-when-let (start (overlay-start overlay))
+                                     (- start 1))
+                                   (origami-fold-beg node))
+                               (or (overlay-end overlay) (origami-fold-end node))
+                               (origami-fold-open-p node)
+                               (origami-fold-children node)
+                               overlay)
+          node)))
+    origami-tree)))
 
 (defun origami-store-cached-tree (buffer tree)
   ;; TODO:
