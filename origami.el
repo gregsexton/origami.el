@@ -527,11 +527,7 @@ as to ensure seeing where POINT is."
 
 (defun origami-reset (buffer)
   (interactive (list (current-buffer)))
-  (let ((tree (origami-get-fold-tree buffer)))
-    (origami-fold-diff tree (origami-store-cached-tree buffer (origami-fold-root-node))
-                       (origami-create-overlay-from-fold-tree-fn buffer)
-                       (origami-delete-overlay-from-fold-tree-fn buffer)
-                       (origami-change-overlay-from-fold-node-fn buffer)))
+  (origami-store-cached-tree buffer (origami-fold-root-node))
   (origami-remove-all-overlays buffer))
 
 ;;; minor mode
