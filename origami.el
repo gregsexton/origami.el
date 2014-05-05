@@ -35,6 +35,48 @@
 (require 'dash)
 (require 's)
 
+;;; overlay manipulation
+
+(defun origami-create-overlay (beg end buffer text)
+  (when (> (- end beg) 0)
+    ;; TODO: adding 1 won't work for anything other than parsing at
+    ;; the char level -- see TODO further down too
+    (let ((ov (make-overlay (+ beg 1) end buffer)))
+      (overlay-put ov 'invisible 'origami)
+      ;; TODO: make this customizable
+      (overlay-put ov 'display text)
+      (overlay-put ov 'face 'font-lock-comment-delimiter-face)
+      ov)))
+
+(defun origami-create-overlay-for-node (node buffer)
+  (let ((overlay (origami-create-overlay (origami-fold-beg node)
+                                         (origami-fold-end node) buffer "...")))
+    (origami-fold-data node overlay)))
+
+(defun origami-create-overlay-from-fold-tree-fn (buffer)
+  (lambda (node)
+    (origami-fold-postorder-each
+     node (lambda (n)
+            (when (not (origami-fold-open n))
+              (origami-create-overlay-for-node n buffer))))))
+
+(defun origami-delete-overlay-from-fold-tree-fn (buffer)
+  (lambda (node)
+    (origami-fold-postorder-each
+     node (lambda (node)
+            (-when-let (ov (origami-fold-data node))
+              (delete-overlay ov))))))
+
+(defun origami-change-overlay-from-fold-node-fn (buffer)
+  (lambda (old new)
+    (if (origami-fold-open-p new)
+        (delete-overlay (origami-fold-data old))
+      (origami-create-overlay-for-node new buffer))))
+
+(defun origami-remove-all-overlays (buffer)
+  (with-current-buffer buffer
+    (remove-overlays (point-min) (point-max) 'invisible 'origami)))
+
 ;;; fold structure
 
 (defun origami-fold-node (beg end open &optional children data)
@@ -196,48 +238,6 @@ contains point, or null."
                                (and (<= (origami-fold-beg node) point)
                                     (>= (origami-fold-end node) point)))))
 
-;;; overlay manipulation
-
-(defun origami-create-overlay (beg end buffer text)
-  (when (> (- end beg) 0)
-    ;; TODO: adding 1 won't work for anything other than parsing at
-    ;; the char level -- see TODO further down too
-    (let ((ov (make-overlay (+ beg 1) end buffer)))
-      (overlay-put ov 'invisible 'origami)
-      ;; TODO: make this customizable
-      (overlay-put ov 'display text)
-      (overlay-put ov 'face 'font-lock-comment-delimiter-face)
-      ov)))
-
-(defun origami-create-overlay-for-node (node buffer)
-  (let ((overlay (origami-create-overlay (origami-fold-beg node)
-                                         (origami-fold-end node) buffer "...")))
-    (origami-fold-data node overlay)))
-
-(defun origami-create-overlay-from-fold-tree-fn (buffer)
-  (lambda (node)
-    (origami-fold-postorder-each
-     node (lambda (n)
-            (when (not (origami-fold-open n))
-              (origami-create-overlay-for-node n buffer))))))
-
-(defun origami-delete-overlay-from-fold-tree-fn (buffer)
-  (lambda (node)
-    (origami-fold-postorder-each
-     node (lambda (node)
-            (-when-let (ov (origami-fold-data node))
-              (delete-overlay ov))))))
-
-(defun origami-change-overlay-from-fold-node-fn (buffer)
-  (lambda (old new)
-    (if (origami-fold-open-p new)
-        (delete-overlay (origami-fold-data old))
-      (origami-create-overlay-for-node new buffer))))
-
-(defun origami-remove-all-overlays (buffer)
-  (with-current-buffer buffer
-    (remove-overlays (point-min) (point-max) 'invisible 'origami)))
-
 ;;; content structure
 
 (defun origami-content (consumed string)
@@ -358,6 +358,13 @@ consumed count."
   ;; update the tree based on any modifications to overlays since
   ;; starting. This is our way of tracking updates to the buffer
   ;; outside of origami.
+
+  ;; TODO: this still doesn't work if the edits mean the child node
+  ;; goes outside of the range of the parent as the parent isn't
+  ;; necessarily updated. Everything gets an overlay and we only
+  ;; manipulate the visiblity? No need to store beg and end anymore as
+  ;; we can just defer this to the overlay. No need to map
+  ;; then. Guaranteed consistent. Probably.
   (debug-msg "cached:")
   (debug-msg
    (origami-fold-map
@@ -436,12 +443,11 @@ otherwise fetch cached tree."
                                            (origami-previous-data
                                             (origami-get-cached-tree buffer))))))
 
-;;; dsl
-
 ;;; commands
 
 ;;; TODO: should ensure that minor mode is enabled?
 ;;; TODO: extract common pattern
+;;; TODO: document
 
 (defun origami-open-node (buffer point)
   (interactive (list (current-buffer) (point)))
