@@ -294,11 +294,16 @@ contains point, or null."
 (defun origami-parser-get ()
   (lambda (s) (cons s s)))
 
-(defun origami-parser-item ()
+(defun origami-parser-take (n)
   (lambda (content)
     (let ((content-str (origami-content-string content)))
       (unless (s-blank? content-str)
-        (cons (substring content-str 0 1) (origami-content-from content 1))))))
+        (let* ((len (length content-str))
+               (n (if (> n len) len n)))
+          (cons (substring content-str 0 n) (origami-content-from content n)))))))
+
+(defun origami-parser-item ()
+  (origami-parser-take 1))
 
 (defun origami-parser-position ()
   "Returns the point position, which is 1 more than the current
@@ -315,6 +320,14 @@ consumed count."
 
 (defun origami-parser-char (x)
   (origami-parser-sat (lambda (c) (equal x c))))
+
+(defun origami-parser-string (str)
+  ;; take rather than recursion due to elisp
+  (origami-do (prefix <- (origami-parser-take (length str)))
+              (pos <- (origami-parser-position))
+              (if (equal str prefix)
+                  (origami-parser-return pos)
+                (origami-parser-zero))))
 
 (defun origami-parser-conj (p1 p2)
   (lambda (content)
