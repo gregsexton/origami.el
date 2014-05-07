@@ -388,8 +388,10 @@ have to prefix with '^' if you wish to match the beginning."
               (origami-parser-return nil)))
 
 (defun origami-parser-paired (start end children create)
+  "CHILDREN should be a zero-arg lambda returning a parser to
+allow for recursive nesting."
   (origami-do (begin <- start)
-              (children <- (origami-parser-0+ children))
+              (children <- (funcall children))
               (end <- end)
               (origami-parser-return (funcall create begin end children))))
 
@@ -422,6 +424,18 @@ have to prefix with '^' if you wish to match the beginning."
           car
           origami-fold-root-node)))))
 
+(defun origami-test-parser (create)
+  (origami-parser-0+ (origami-parser-conj
+                      (origami-do
+                       (origami-parser-consume-while (origami-parser-not
+                                                      (origami-parser-conj (origami-parser-char "{")
+                                                                           (origami-parser-char "}"))))
+                       (origami-parser-paired (origami-parser-char "{")
+                                              (origami-parser-char "}")
+                                              (lambda () (origami-test-parser create))
+                                              create))
+                      (origami-parser-consume-while (origami-parser-not (origami-parser-char "}"))))))
+
 (defun origami-get-parser (buffer)
   ;; TODO: remove hardcoding!
   (let ((create (lambda (beg end children)
@@ -430,12 +444,7 @@ have to prefix with '^' if you wish to match the beginning."
                                      buffer
                                      children
                                      (origami-get-cached-tree buffer)))))
-    (origami-parser-0+ (origami-do
-                        (origami-parser-paired (origami-parser-regex "public .*{")
-                                               (origami-parser-char "}")
-                                               (origami-parser-consume-while
-                                                (origami-parser-not (origami-parser-char "}")))
-                                               create)))))
+    (origami-test-parser create)))
 
 (defun origami-get-fold-tree (buffer)
   "Facade. Build the tree if it hasn't already been built
