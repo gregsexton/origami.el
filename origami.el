@@ -294,6 +294,19 @@ contains point, or null."
 (defun origami-parser-get ()
   (lambda (s) (cons s s)))
 
+(defun origami-parser-put (x)
+  (lambda (s) (cons nil x)))
+
+(defun origami-parser-get-string ()
+  (origami-do (content <- (origami-parser-get))
+              (origami-parser-return (origami-content-string content))))
+
+(defun origami-parser-drop (n)
+  (origami-do (content <- (origami-parser-get))
+              (origami-parser-put (origami-content-from content n))
+              ;; TODO: substring will error if n is too large, guard against this
+              (origami-parser-return (substring (origami-content-string content) 0 n))))
+
 (defun origami-parser-take (n)
   (lambda (content)
     (let ((content-str (origami-content-string content)))
@@ -329,6 +342,15 @@ consumed count."
                   (origami-parser-return pos)
                 (origami-parser-zero))))
 
+(defun origami-parser-regex (rx)
+  "Match the regex somewhere in the remaining string. Note you
+have to prefix with '^' if you wish to match the beginning."
+  (origami-do (str <- (origami-parser-get-string))
+              (if (string-match rx str)
+                  (origami-parser-drop (match-end 0))
+                (origami-parser-zero))
+              (origami-parser-position)))
+
 (defun origami-parser-conj (p1 p2)
   (lambda (content)
     (or (origami-run-parser p1 content)
@@ -354,16 +376,22 @@ consumed count."
 (defun origami-parser-1? (p)
   (origami-parser-conj p (origami-parser-return nil)))
 
+(defun origami-parser-not (parser)
+  (lambda (content)
+    (if (origami-run-parser parser content)
+        nil
+      (origami-run-parser (origami-parser-item) content))))
+
+(defun origami-parser-consume-while (parser)
+  ;; TODO: this should really be 0+ but for some reason goes in to an infinte loop
+  (origami-do (positions <- (origami-parser-1+ parser))
+              (origami-parser-return nil)))
+
 (defun origami-parser-paired (start end children create)
   (origami-do (begin <- start)
               (children <- (origami-parser-0+ children))
               (end <- end)
               (origami-parser-return (funcall create begin end children))))
-
-(defun origami-parser-consume-while (pred)
-  ;; TODO: this should really be 0+ but for some reason goes in to an infinte loop
-  (origami-do (positions <- (origami-parser-1+ (origami-parser-sat pred)))
-              (origami-parser-return (car (last positions)))))
 
 ;;; TODO: always need to parse to max nesting, even if some of it gets ignored
 
@@ -373,8 +401,7 @@ consumed count."
 (defvar origami-tree (origami-fold-root-node))
 
 (defun origami-get-cached-tree (buffer)
-  (debug-msg "cached:")
-  (debug-msg origami-tree))
+  origami-tree)
 
 (defun origami-store-cached-tree (buffer tree)
   ;; TODO:
@@ -404,22 +431,10 @@ consumed count."
                                      children
                                      (origami-get-cached-tree buffer)))))
     (origami-parser-0+ (origami-do
-                        (origami-parser-consume-while (lambda (x)
-                                                        (not (equal x "{"))))
-                        (origami-parser-paired (origami-parser-char "{")
+                        (origami-parser-paired (origami-parser-regex "public .*{")
                                                (origami-parser-char "}")
-                                               (origami-do
-                                                (origami-parser-consume-while (lambda (x) (and (not (equal x "}"))
-                                                                                               (not (equal x "{")))))
-                                                (origami-parser-1?
-                                                 (origami-parser-paired
-                                                  (origami-parser-char "{")
-                                                  (origami-parser-char "}")
-                                                  (origami-do
-                                                   (origami-parser-consume-while (lambda (x) (and (not (equal x "}"))
-                                                                                                  (not (equal x "{")))))
-                                                   (origami-parser-return nil))
-                                                  create)))
+                                               (origami-parser-consume-while
+                                                (origami-parser-not (origami-parser-char "}")))
                                                create)))))
 
 (defun origami-get-fold-tree (buffer)
