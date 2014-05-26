@@ -305,7 +305,7 @@ contains point, or null."
   (origami-do (content <- (origami-parser-get))
               (origami-parser-put (origami-content-from content n))
               ;; TODO: substring will error if n is too large, guard against this
-              (origami-parser-return (substring (origami-content-string content) 0 n))))
+              (origami-parser-return n)))
 
 (defun origami-parser-take (n)
   (lambda (content)
@@ -351,6 +351,19 @@ have to prefix with '^' if you wish to match the beginning."
                 (origami-parser-zero))
               (origami-parser-position)))
 
+;;; TODO: rename? origami-parser-consume-while-not ?
+(defun origami-parser-drop-until-regex (rx)
+  "Skip over all characters until hitting RX. If rx is not found
+this will bind to zero. If rx is matched at the beginning of the
+string, we bind to zero. This allows for bottoming out of
+recursion. We fail if we don't consume something."
+  (origami-do (str <- (origami-parser-get-string))
+              (if (string-match rx str)
+                  (if (> (match-beginning 0) 0)
+                      (origami-parser-drop (match-beginning 0))
+                    (origami-parser-zero))
+                (origami-parser-zero))))
+
 (defun origami-parser-conj (p1 p2)
   (lambda (content)
     (or (origami-run-parser p1 content)
@@ -382,12 +395,7 @@ have to prefix with '^' if you wish to match the beginning."
         nil
       (origami-run-parser (origami-parser-item) content))))
 
-(defun origami-parser-consume-while (parser)
-  ;; TODO: this should really be 0+ but for some reason goes in to an infinte loop
-  (origami-do (positions <- (origami-parser-1+ parser))
-              (origami-parser-return nil)))
-
-(defun origami-parser-paired (start end children create)
+(defun origami-parser-paired (start children end create)
   "CHILDREN should be a zero-arg lambda returning a parser to
 allow for recursive nesting."
   (origami-do (begin <- start)
@@ -427,14 +435,16 @@ allow for recursive nesting."
 (defun origami-test-parser (create)
   (origami-parser-0+ (origami-parser-conj
                       (origami-do
-                       (origami-parser-consume-while (origami-parser-not
-                                                      (origami-parser-conj (origami-parser-char "{")
-                                                                           (origami-parser-char "}"))))
-                       (origami-parser-paired (origami-parser-char "{")
-                                              (origami-parser-char "}")
-                                              (lambda () (origami-test-parser create))
-                                              create))
-                      (origami-parser-consume-while (origami-parser-not (origami-parser-char "}"))))))
+                       (origami-parser-drop-until-regex "[{}]")
+                       (origami-parser-1?
+                        (origami-parser-paired (origami-parser-char "{")
+                                               (lambda () (origami-test-parser create))
+                                               (origami-parser-char "}")
+                                               create)))
+                      (origami-parser-paired (origami-parser-char "{")
+                                             (lambda () (origami-test-parser create))
+                                             (origami-parser-char "}")
+                                             create))))
 
 (defun origami-get-parser (buffer)
   ;; TODO: remove hardcoding!
