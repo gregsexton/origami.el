@@ -396,8 +396,9 @@ recursion. We fail if we don't consume something."
       (origami-run-parser (origami-parser-item) content))))
 
 (defun origami-parser-paired (start children end create)
-  "CHILDREN should be a zero-arg lambda returning a parser to
-allow for recursive nesting."
+  ;; TODO: make this a macro so I don't have to pass in the thunk?
+  "CHILDREN should be a zero-arg lambda -- a thunk -- returning a
+parser to allow for recursive nesting of a parser."
   (origami-do (begin <- start)
               (children <- (funcall children))
               (end <- end)
@@ -433,18 +434,15 @@ allow for recursive nesting."
           origami-fold-root-node)))))
 
 (defun origami-test-parser (create)
-  (origami-parser-0+ (origami-parser-conj
-                      (origami-do
-                       (origami-parser-drop-until-regex "[{}]")
-                       (origami-parser-1?
-                        (origami-parser-paired (origami-parser-char "{")
-                                               (lambda () (origami-test-parser create))
-                                               (origami-parser-char "}")
-                                               create)))
-                      (origami-parser-paired (origami-parser-char "{")
-                                             (lambda () (origami-test-parser create))
-                                             (origami-parser-char "}")
-                                             create))))
+  (let ((pair (origami-parser-paired (origami-parser-char "{")
+                                     (lambda () (origami-test-parser create))
+                                     (origami-parser-char "}")
+                                     create)))
+    (origami-parser-0+ (origami-parser-conj
+                        (origami-do
+                         (origami-parser-drop-until-regex "[{}]")
+                         (origami-parser-1? pair))
+                        pair))))
 
 (defun origami-get-parser (buffer)
   ;; TODO: remove hardcoding!
