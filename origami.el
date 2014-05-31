@@ -412,9 +412,7 @@ parser to allow for recursive nesting of a parser."
   origami-tree)
 
 (defun origami-store-cached-tree (buffer tree)
-  ;; TODO:
-  (debug-msg "new:")
-  (debug-msg (setq origami-tree tree)))
+  (setq origami-tree tree))
 
 (defun origami-was-previously-open? (tree beg end)
   (-if-let (node (-last-item (origami-fold-find-path-with-range tree beg end)))
@@ -455,9 +453,7 @@ parser to allow for recursive nesting of a parser."
   "Facade. Build the tree if it hasn't already been built
 otherwise fetch cached tree."
   ;; TODO: caching -- don't parse again if there have been no edits since last time
-  (debug-msg "old:")
-  (debug-msg
-   (origami-build-tree buffer (origami-get-parser buffer))))
+  (origami-build-tree buffer (origami-get-parser buffer)))
 
 ;;; commands
 
@@ -579,7 +575,6 @@ Key bindings:
   :lighter nil
   :keymap origami-mode-map
   :init-value nil
-  (debug-msg "mode: %s" origami-mode)
   (if origami-mode                      ;enabling if t
       (set (make-local-variable 'origami-tree) (origami-fold-root-node))
     (origami-reset (current-buffer))))
