@@ -101,7 +101,7 @@
 
 (defun origami-fold-root-node (&optional children)
   ;; TODO: fix min and max
-  (origami-fold-node-raw 1 10000 t children 'root))
+  (origami-fold-node-raw 1 100000 t children 'root))
 
 (defun origami-fold-is-root-node? (node) (eq (origami-fold-data node) 'root))
 
@@ -461,7 +461,7 @@ otherwise fetch cached tree."
 
 ;;; commands
 
-;;; TODO: should ensure that minor mode is enabled?
+;;; TODO: should ensure that minor mode is enabled
 ;;; TODO: extract common pattern
 ;;; TODO: document
 
@@ -558,6 +558,11 @@ as to ensure seeing where POINT is."
   (let ((map (make-sparse-keymap)))
     map)
   "Keymap for `origami-mode'.")
+
+(defcustom origami-mode-hook nil
+  "Hook called when origami minor mode is activated or deactivated."
+  :type 'hook
+  :group 'origami)
 
 (define-minor-mode origami-mode
   "Minor mode to selectively hide/show text in the current buffer.
