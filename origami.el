@@ -408,9 +408,6 @@ parser to allow for recursive nesting of a parser."
 
 ;;; interactive utils
 
-;;; TODO: delete or make buffer local
-(defvar origami-tree (origami-fold-root-node))
-
 (defun origami-get-cached-tree (buffer)
   origami-tree)
 
@@ -556,5 +553,32 @@ as to ensure seeing where POINT is."
   (origami-remove-all-overlays buffer))
 
 ;;; minor mode
+
+(defvar origami-mode-map
+  (let ((map (make-sparse-keymap)))
+    map)
+  "Keymap for `origami-mode'.")
+
+(define-minor-mode origami-mode
+  "Minor mode to selectively hide/show text in the current buffer.
+With a prefix argument ARG, enable the mode if ARG is positive,
+and disable it otherwise.  If called from Lisp, enable the mode
+if ARG is omitted or nil.
+
+Lastly, the normal hook `origami-mode-hook' is run using
+`run-hooks'.
+
+Key bindings:
+\\{origami-mode-map}"
+  :group 'origami
+  :lighter nil
+  :keymap origami-mode-map
+  :init-value nil
+  (debug-msg "mode: %s" origami-mode)
+  (if origami-mode                      ;enabling if t
+      (set (make-local-variable 'origami-tree) (origami-fold-root-node))
+    (origami-reset (current-buffer))))
+
+(provide 'origami)
 
 ;;; origami.el ends here
