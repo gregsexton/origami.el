@@ -187,6 +187,8 @@ F applied to the leaf."
                    (origami-fold-children new))))
 
 (defun origami-fold-postorder-each (node f)
+  ;; TODO: this isn't recursive. Not sure that it should be, looking at
+  ;; usage. Fix or rename.
   (-each (origami-fold-children node) f)
   (funcall f node))
 
@@ -235,6 +237,21 @@ contains point, or null."
                              (lambda (node)
                                (and (<= (origami-fold-beg node) point)
                                     (>= (origami-fold-end node) point)))))
+
+(defun origami-fold-preorder-reduce (tree f initial-state)
+  "Reduce the tree by doing a preorder traversal. F is applied
+with the current state and the current node at each iteration."
+  (-reduce-from (lambda (state node) (origami-fold-preorder-reduce node f state))
+                (funcall f initial-state tree)
+                (origami-fold-children tree)))
+
+(defun origami-fold-postorder-reduce (tree f initial-state)
+  "Reduce the tree by doing a postorder traversal. F is applied
+with the current state and the current node at each iteration."
+  (funcall f (-reduce-from (lambda (state node) (origami-fold-postorder-reduce node f state))
+                           initial-state
+                           (origami-fold-children tree))
+           tree))
 
 ;;; TODO: why does this own copying data over? should it own copying over open status?
 ;;; TODO: not happy with this signature. Breaks abstraction layering.
@@ -526,6 +543,31 @@ as to ensure seeing where POINT is."
   (interactive (list (current-buffer) (point)))
   (origami-close-all-nodes buffer)
   (origami-show-node buffer point))
+
+(defun origami-previous-fold (buffer point)
+  "Move point to the beginning of the fold before point. If point
+is in a fold, move to the beginning of the fold that point is
+in."
+  (interactive (list (current-buffer) (point)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (-> tree
+      (origami-fold-preorder-reduce (lambda (state n)
+                                      (cons (origami-fold-beg n) state)) nil)
+      (->> (-reduce (lambda (state pos)
+                      (if (< state point) state pos))))
+      goto-char)))
+
+(defun origami-next-fold (buffer point)
+  "Move point to the end of the fold after point. If point is in
+a fold, move to the end of the fold that point is in."
+  (interactive (list (current-buffer) (point)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (-> tree
+      (origami-fold-postorder-reduce (lambda (state n)
+                                       (cons (origami-fold-end n) state)) nil)
+      (->> (-reduce (lambda (state pos)
+                      (if (<= pos point) state pos))))
+      goto-char)))
 
 (defun origami-reset (buffer)
   (interactive (list (current-buffer)))
