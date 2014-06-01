@@ -34,6 +34,7 @@
 
 (require 'dash)
 (require 's)
+(require 'cl)
 
 ;;; overlay manipulation
 
