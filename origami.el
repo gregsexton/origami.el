@@ -264,6 +264,8 @@ contains point, or null."
 
 ;;; monadic parser combinator
 
+;;; TODO: document parsers
+
 (defun origami-run-parser (parser content)
   (funcall parser content))
 
@@ -454,90 +456,71 @@ parser to allow for recursive nesting of a parser."
   "Facade. Build the tree if it hasn't already been built
 otherwise fetch cached tree."
   ;; TODO: caching -- don't parse again if there have been no edits since last time
-  (origami-build-tree buffer (origami-get-parser buffer)))
+  (when origami-mode
+    (origami-build-tree buffer (origami-get-parser buffer))))
 
 ;;; commands
 
-;;; TODO: should ensure that minor mode is enabled
-;;; TODO: extract common pattern
-;;; TODO: document
+;;; TODO: document all commands
+
+(defun origami-apply-new-tree (buffer old-tree new-tree)
+  (when new-tree
+    (origami-fold-diff old-tree (origami-store-cached-tree buffer new-tree)
+                       'origami-hide-overlay-from-fold-tree-fn
+                       'origami-show-overlay-from-fold-tree-fn
+                       'origami-change-overlay-from-fold-node-fn)))
 
 (defun origami-open-node (buffer point)
   (interactive (list (current-buffer) (point)))
-  (let ((tree (origami-get-fold-tree buffer)))
+  (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
-      (origami-fold-diff tree (origami-store-cached-tree buffer
-                                                         (origami-fold-assoc
-                                                          path (lambda (node)
-                                                                 (origami-fold-open-set node t))))
-                         'origami-hide-overlay-from-fold-tree-fn
-                         'origami-show-overlay-from-fold-tree-fn
-                         'origami-change-overlay-from-fold-node-fn))))
+      (origami-apply-new-tree buffer tree (origami-fold-assoc path (lambda (node)
+                                                                     (origami-fold-open-set node t)))))))
 
 (defun origami-show-node (buffer point)
   "Like `origami-open-node' but opens parent nodes recursively so
 as to ensure seeing where POINT is."
   (interactive (list (current-buffer) (point)))
-  (let ((tree (origami-get-fold-tree buffer)))
+  (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
-      (origami-fold-diff tree (origami-store-cached-tree buffer
-                                                         (origami-fold-path-map
-                                                          (lambda (node)
-                                                            (origami-fold-open-set node t))
-                                                          path))
-                         'origami-hide-overlay-from-fold-tree-fn
-                         'origami-show-overlay-from-fold-tree-fn
-                         'origami-change-overlay-from-fold-node-fn))))
+      (origami-apply-new-tree buffer tree (origami-fold-path-map
+                                           (lambda (node)
+                                             (origami-fold-open-set node t))
+                                           path)))))
 
 (defun origami-close-node (buffer point)
   (interactive (list (current-buffer) (point)))
-  (let ((tree (origami-get-fold-tree buffer)))
+  (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
-      (origami-fold-diff tree (origami-store-cached-tree buffer
-                                                         (origami-fold-assoc
-                                                          path (lambda (node)
-                                                                 (origami-fold-open-set node nil))))
-                         'origami-hide-overlay-from-fold-tree-fn
-                         'origami-show-overlay-from-fold-tree-fn
-                         'origami-change-overlay-from-fold-node-fn))))
+      (origami-apply-new-tree buffer tree (origami-fold-assoc
+                                           path (lambda (node)
+                                                  (origami-fold-open-set node nil)))))))
 
 (defun origami-toggle-node (buffer point)
   (interactive (list (current-buffer) (point)))
-  (let ((tree (origami-get-fold-tree buffer)))
+  (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
-      (origami-fold-diff tree (origami-store-cached-tree buffer
-                                                         (origami-fold-assoc
-                                                          path (lambda (node)
-                                                                 (origami-fold-open-set
-                                                                  node (not (origami-fold-open-p
-                                                                             (-last-item path)))))))
-                         'origami-hide-overlay-from-fold-tree-fn
-                         'origami-show-overlay-from-fold-tree-fn
-                         'origami-change-overlay-from-fold-node-fn))))
+      (origami-apply-new-tree buffer tree (origami-fold-assoc
+                                           path (lambda (node)
+                                                  (origami-fold-open-set
+                                                   node (not (origami-fold-open-p
+                                                              (-last-item path))))))))))
 
 (defun origami-open-all-nodes (buffer)
   (interactive (list (current-buffer)))
-  (let ((tree (origami-get-fold-tree buffer)))
-    (origami-fold-diff tree (origami-store-cached-tree buffer
-                                                       (origami-fold-map
-                                                        (lambda (node)
-                                                          (origami-fold-open-set node t))
-                                                        tree))
-                       'origami-hide-overlay-from-fold-tree-fn
-                       'origami-show-overlay-from-fold-tree-fn
-                       'origami-change-overlay-from-fold-node-fn)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (origami-apply-new-tree buffer tree (origami-fold-map
+                                         (lambda (node)
+                                           (origami-fold-open-set node t))
+                                         tree))))
 
 (defun origami-close-all-nodes (buffer)
   (interactive (list (current-buffer)))
-  (let ((tree (origami-get-fold-tree buffer)))
-    (origami-fold-diff tree (origami-store-cached-tree buffer
-                                                       (origami-fold-map
-                                                        (lambda (node)
-                                                          (origami-fold-open-set node nil))
-                                                        tree))
-                       'origami-hide-overlay-from-fold-tree-fn
-                       'origami-show-overlay-from-fold-tree-fn
-                       'origami-change-overlay-from-fold-node-fn)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (origami-apply-new-tree buffer tree (origami-fold-map
+                                         (lambda (node)
+                                           (origami-fold-open-set node nil))
+                                         tree))))
 
 (defun origami-show-only-node (buffer point)
   (interactive (list (current-buffer) (point)))
