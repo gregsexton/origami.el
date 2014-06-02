@@ -494,6 +494,17 @@ otherwise fetch cached tree."
       (origami-apply-new-tree buffer tree (origami-fold-assoc path (lambda (node)
                                                                      (origami-fold-open-set node t)))))))
 
+(defun origami-open-node-recursively (buffer point)
+  (interactive (list (current-buffer) (point)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (-when-let (path (origami-fold-find-path-containing tree point))
+      (origami-apply-new-tree
+       buffer tree (origami-fold-assoc path
+                                       (lambda (node)
+                                         (origami-fold-map (lambda (node)
+                                                             (origami-fold-open-set node t))
+                                                           node)))))))
+
 (defun origami-show-node (buffer point)
   "Like `origami-open-node' but opens parent nodes recursively so
 as to ensure seeing where POINT is."
@@ -512,6 +523,17 @@ as to ensure seeing where POINT is."
       (origami-apply-new-tree buffer tree (origami-fold-assoc
                                            path (lambda (node)
                                                   (origami-fold-open-set node nil)))))))
+
+(defun origami-close-node-recursively (buffer point)
+  (interactive (list (current-buffer) (point)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (-when-let (path (origami-fold-find-path-containing tree point))
+      (origami-apply-new-tree
+       buffer tree (origami-fold-assoc path
+                                       (lambda (node)
+                                         (origami-fold-map (lambda (node)
+                                                             (origami-fold-open-set node nil))
+                                                           node)))))))
 
 (defun origami-toggle-node (buffer point)
   (interactive (list (current-buffer) (point)))
