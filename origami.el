@@ -428,11 +428,27 @@ parser to allow for recursive nesting of a parser."
 
 ;;; interactive utils
 
+;;; TODO: create functions for accessing/setting the local vars and
+;;; make sure these are used -- error if the buffer local var isn't set
+
 (defun origami-get-cached-tree (buffer)
-  origami-tree)
+  (or (local-variable-p 'origami-tree buffer)
+      (error "Necessary local variables were not available"))
+  (buffer-local-value 'origami-tree buffer))
 
 (defun origami-store-cached-tree (buffer tree)
-  (setq origami-tree tree))
+  (or (local-variable-p 'origami-tree buffer)
+      (local-variable-p 'origami-tree-tick buffer)
+      (error "Necessary local variables were not available"))
+  (with-current-buffer buffer
+    (setq origami-tree-tick (buffer-modified-tick))
+    (setq origami-tree tree)))
+
+(defun origami-rebuild-tree? (buffer)
+  "Determines if the tree needs to be rebuilt for BUFFER since it
+was last built."
+  (not (= (buffer-local-value 'origami-tree-tick buffer)
+          (buffer-modified-tick buffer))))
 
 (defun origami-was-previously-open? (tree beg end)
   (-if-let (node (-last-item (origami-fold-find-path-with-range tree beg end)))
@@ -472,9 +488,10 @@ parser to allow for recursive nesting of a parser."
 (defun origami-get-fold-tree (buffer)
   "Facade. Build the tree if it hasn't already been built
 otherwise fetch cached tree."
-  ;; TODO: caching -- don't parse again if there have been no edits since last time
   (when origami-mode
-    (origami-build-tree buffer (origami-get-parser buffer))))
+    (if (origami-rebuild-tree? buffer)
+        (origami-build-tree buffer (origami-get-parser buffer))
+      (origami-get-cached-tree buffer))))
 
 ;;; commands
 
@@ -624,7 +641,9 @@ Key bindings:
   :keymap origami-mode-map
   :init-value nil
   (if origami-mode                      ;enabling if t
-      (set (make-local-variable 'origami-tree) (origami-fold-root-node))
+      (progn
+        (set (make-local-variable 'origami-tree) (origami-fold-root-node))
+        (set (make-local-variable 'origami-tree-tick) (buffer-modified-tick)))
     (origami-reset (current-buffer))))
 
 (provide 'origami)
