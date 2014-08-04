@@ -562,6 +562,26 @@ as to ensure seeing where POINT is."
                                                    node (not (origami-fold-open-p
                                                               (-last-item path))))))))))
 
+(defun origami-forward-toggle-node (buffer point)
+  (interactive (list (current-buffer) (point)))
+  (let (end)
+    (with-current-buffer buffer
+      (save-excursion
+        (goto-char point)
+        (setq end (line-end-position))))
+    (-when-let (tree (origami-get-fold-tree buffer))
+      (-when-let (path (origami-fold-find-path-containing tree point))
+        (let ((forward-node (-first (lambda (node)
+                                      (and (>= (origami-fold-beg node) point)
+                                           (<= (origami-fold-beg node) end)))
+                                    (origami-fold-children (-last-item path)))))
+          (let ((path (if forward-node (append path (list forward-node)) path)))
+            (origami-apply-new-tree buffer tree (origami-fold-assoc
+                                                 path (lambda (node)
+                                                        (origami-fold-open-set
+                                                         node (not (origami-fold-open-p
+                                                                    (-last-item path)))))))))))))
+
 (defun origami-open-all-nodes (buffer)
   (interactive (list (current-buffer)))
   (-when-let (tree (origami-get-fold-tree buffer))
