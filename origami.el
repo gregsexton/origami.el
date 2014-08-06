@@ -35,6 +35,7 @@
 (require 'dash)
 (require 's)
 (require 'cl)
+(require 'parser)
 
 ;;; overlay manipulation
 
@@ -264,168 +265,6 @@ with the current state and the current node at each iteration."
                      (origami-create-overlay beg end buffer))))
     (origami-fold-node-raw beg end open children overlay)))
 
-;;; content structure
-
-(defun origami-content (consumed string)
-  "Create a content structure from STRING and the count of CONSUMED characters."
-  (cons consumed string))
-
-(defun origami-content-consumed-count (content) (car content))
-
-(defun origami-content-string (content) (cdr content))
-
-(defun origami-content-from (content consumed)
-  "Create a new content after consuming CONSUMED chars."
-  (origami-content (+ (origami-content-consumed-count content) consumed)
-                   (substring (origami-content-string content) consumed)))
-
-;;; monadic parser combinator
-
-;;; TODO: document parsers
-
-(defun origami-run-parser (parser content)
-  (funcall parser content))
-
-(defun origami-parser-bind (m f)
-  "State monad composed with the maybe monad."
-  (if (null m) nil
-    (lambda (s)
-      (let ((new-result (origami-run-parser m s)))
-        (if (null new-result) nil
-          (destructuring-bind (new-value . new-state) new-result
-            (origami-run-parser (funcall f new-value) new-state)))))))
-
-(defmacro origami-do (expr &rest more)
-  (let ((assignment-p (and (listp expr) (equal (cadr expr) '<-))))
-    (let ((var (if assignment-p (car expr) (gensym)))
-          (f (if assignment-p (caddr expr) expr)))
-      (if more
-          `(origami-parser-bind
-            ,f (lambda (,var)
-                 (origami-do ,@more)))
-        f))))
-
-(defun origami-parser-return (x)
-  (lambda (s) (cons x s)))
-
-(defun origami-parser-zero ()
-  (lambda (s) nil))
-
-(defun origami-parser-get ()
-  (lambda (s) (cons s s)))
-
-(defun origami-parser-put (x)
-  (lambda (s) (cons nil x)))
-
-(defun origami-parser-get-string ()
-  (origami-do (content <- (origami-parser-get))
-              (origami-parser-return (origami-content-string content))))
-
-(defun origami-parser-drop (n)
-  (origami-do (content <- (origami-parser-get))
-              (origami-parser-put (origami-content-from content n))
-              ;; TODO: substring will error if n is too large, guard against this
-              (origami-parser-return n)))
-
-(defun origami-parser-take (n)
-  (lambda (content)
-    (let ((content-str (origami-content-string content)))
-      (unless (s-blank? content-str)
-        (let* ((len (length content-str))
-               (n (if (> n len) len n)))
-          (cons (substring content-str 0 n) (origami-content-from content n)))))))
-
-(defun origami-parser-item ()
-  (origami-parser-take 1))
-
-(defun origami-parser-position ()
-  "Returns the point position, which is 1 more than the current
-consumed count."
-  (origami-do (content <- (origami-parser-get))
-              (origami-parser-return (+ (origami-content-consumed-count content) 1))))
-
-(defun origami-parser-sat (pred)
-  (origami-do (pos <- (origami-parser-position))
-              (a <- (origami-parser-item))
-              (if (funcall pred a)
-                  (origami-parser-return pos)
-                (origami-parser-zero))))
-
-(defun origami-parser-char (x)
-  (origami-parser-sat (lambda (c) (equal x c))))
-
-(defun origami-parser-string (str)
-  ;; take rather than recursion due to elisp
-  (origami-do (prefix <- (origami-parser-take (length str)))
-              (pos <- (origami-parser-position))
-              (if (equal str prefix)
-                  (origami-parser-return pos)
-                (origami-parser-zero))))
-
-(defun origami-parser-regex (rx)
-  "Match the regex somewhere in the remaining string. Note you
-have to prefix with '^' if you wish to match the beginning."
-  (origami-do (str <- (origami-parser-get-string))
-              (if (string-match rx str)
-                  (origami-parser-drop (match-end 0))
-                (origami-parser-zero))
-              (origami-parser-position)))
-
-;;; TODO: rename? origami-parser-consume-while-not ?
-(defun origami-parser-drop-until-regex (rx)
-  "Skip over all characters until hitting RX. If rx is not found
-this will bind to zero. If rx is matched at the beginning of the
-string, we bind to zero. This allows for bottoming out of
-recursion. We fail if we don't consume something."
-  (origami-do (str <- (origami-parser-get-string))
-              (if (string-match rx str)
-                  (if (> (match-beginning 0) 0)
-                      (origami-parser-drop (match-beginning 0))
-                    (origami-parser-zero))
-                (origami-parser-zero))))
-
-(defun origami-parser-conj (p1 p2)
-  (lambda (content)
-    (or (origami-run-parser p1 content)
-        (origami-run-parser p2 content))))
-
-(defun origami-parser-0+ (p)
-  (origami-parser-conj
-   (origami-parser-1+ p)
-   (origami-parser-return nil)))
-
-(defun origami-parser-1+ (p)
-  ;; recursive isn't going to cut it in elisp
-  (lambda (content)
-    (let ((res (origami-run-parser p content))
-          (acc nil))
-      (while res
-        (setq acc (cons (car res) acc))
-        (setq content (cdr res))
-        (setq res (origami-run-parser p content)))
-      (when acc
-        (cons (reverse acc) content)))))
-
-(defun origami-parser-1? (p)
-  (origami-parser-conj p (origami-parser-return nil)))
-
-(defun origami-parser-not (parser)
-  (lambda (content)
-    (if (origami-run-parser parser content)
-        nil
-      (origami-run-parser (origami-parser-item) content))))
-
-(defun origami-parser-paired (start children end create)
-  ;; TODO: make this a macro so I don't have to pass in the thunk?
-  "CHILDREN should be a zero-arg lambda -- a thunk -- returning a
-parser to allow for recursive nesting of a parser."
-  (origami-do (begin <- start)
-              (children <- (funcall children))
-              (end <- end)
-              (origami-parser-return (funcall create begin end children))))
-
-;;; TODO: always need to parse to max nesting, even if some of it gets ignored
-
 ;;; interactive utils
 
 ;;; TODO: create functions for accessing/setting the local vars and
@@ -460,20 +299,20 @@ was last built."
     (with-current-buffer buffer
       (let ((contents (buffer-string)))
         (-> parser
-          (origami-run-parser (origami-content 0 contents))
+          (parser-run (parser-content 0 contents))
           car
           origami-fold-root-node)))))
 
 (defun origami-test-parser (create)
-  (let ((pair (origami-parser-paired (origami-parser-char "{")
-                                     (lambda () (origami-test-parser create))
-                                     (origami-parser-char "}")
-                                     create)))
-    (origami-parser-0+ (origami-parser-conj
-                        (origami-do
-                         (origami-parser-drop-until-regex "[{}]")
-                         (origami-parser-1? pair))
-                        pair))))
+  (let ((pair (parser-paired (parser-char "{")
+                             (lambda () (origami-test-parser create))
+                             (parser-char "}")
+                             create)))
+    (parser-0+ (parser-conj
+                (parser-do
+                 (parser-drop-until-regex "[{}]")
+                 (parser-1? pair))
+                pair))))
 
 (defun origami-get-parser (buffer)
   ;; TODO: remove hardcoding!
@@ -493,16 +332,16 @@ otherwise fetch cached tree."
         (origami-build-tree buffer (origami-get-parser buffer))
       (origami-get-cached-tree buffer))))
 
-;;; commands
-
-;;; TODO: document all commands
-
 (defun origami-apply-new-tree (buffer old-tree new-tree)
   (when new-tree
     (origami-fold-diff old-tree (origami-store-cached-tree buffer new-tree)
                        'origami-hide-overlay-from-fold-tree-fn
                        'origami-show-overlay-from-fold-tree-fn
                        'origami-change-overlay-from-fold-node-fn)))
+
+;;; commands
+
+;;; TODO: document all commands
 
 (defun origami-open-node (buffer point)
   (interactive (list (current-buffer) (point)))
