@@ -36,6 +36,7 @@
 (require 's)
 (require 'cl)
 (require 'parser)
+(require 'origami-parsers)
 
 ;;; overlay manipulation
 
@@ -65,7 +66,7 @@
   (origami-fold-postorder-each node 'origami-show-node-overlay))
 
 (defun origami-change-overlay-from-fold-node-fn (old new)
-  (if (origami-fold-open-p new)
+  (if (origami-fold-open? new)
       (origami-show-node-overlay old)
     (origami-hide-node-overlay new)))
 
@@ -120,7 +121,7 @@
         (aref node 1)
       (overlay-end (origami-fold-data node)))))
 
-(defun origami-fold-open-p (node) (when node (aref node 2)))
+(defun origami-fold-open? (node) (when node (aref node 2)))
 
 (defun origami-fold-open-set (node value)
   (when node
@@ -138,7 +139,7 @@
   (when node
     (origami-fold-node-raw (origami-fold-beg node)
                            (origami-fold-end node)
-                           (origami-fold-open-p node)
+                           (origami-fold-open? node)
                            children
                            (origami-fold-data node))))
 
@@ -149,7 +150,7 @@
        (equal (origami-fold-end a) (origami-fold-end b))))
 
 (defun origami-fold-state-equal (a b)
-  (equal (origami-fold-open-p a) (origami-fold-open-p b)))
+  (equal (origami-fold-open? a) (origami-fold-open? b)))
 
 (defun origami-fold-replace-child (node old new)
   (origami-fold-children-set node
@@ -291,7 +292,7 @@ was last built."
 
 (defun origami-was-previously-open? (tree beg end)
   (-if-let (node (-last-item (origami-fold-find-path-with-range tree beg end)))
-      (origami-fold-open-p node)
+      (origami-fold-open? node)
     t))
 
 (defun origami-build-tree (buffer parser)
@@ -303,26 +304,16 @@ was last built."
           car
           origami-fold-root-node)))))
 
-(defun origami-test-parser (create)
-  (let ((pair (parser-paired (parser-char "{")
-                             (lambda () (origami-test-parser create))
-                             (parser-char "}")
-                             create)))
-    (parser-0+ (parser-conj
-                (parser-do
-                 (parser-drop-until-regex "[{}]")
-                 (parser-1? pair))
-                pair))))
-
 (defun origami-get-parser (buffer)
-  ;; TODO: remove hardcoding!
   (let ((create (lambda (beg end children)
                   (origami-fold-node beg end
                                      (origami-was-previously-open? (origami-get-cached-tree buffer) beg end)
                                      buffer
                                      children
                                      (origami-get-cached-tree buffer)))))
-    (origami-test-parser create)))
+    (-when-let (parser-gen (cdr (assoc (buffer-local-value 'major-mode buffer)
+                                       origami-parser-alist)))
+      (funcall parser-gen create))))
 
 (defun origami-get-fold-tree (buffer)
   "Facade. Build the tree if it hasn't already been built
@@ -398,7 +389,7 @@ as to ensure seeing where POINT is."
       (origami-apply-new-tree buffer tree (origami-fold-assoc
                                            path (lambda (node)
                                                   (origami-fold-open-set
-                                                   node (not (origami-fold-open-p
+                                                   node (not (origami-fold-open?
                                                               (-last-item path))))))))))
 
 (defun origami-forward-toggle-node (buffer point)
@@ -418,7 +409,7 @@ as to ensure seeing where POINT is."
             (origami-apply-new-tree buffer tree (origami-fold-assoc
                                                  path (lambda (node)
                                                         (origami-fold-open-set
-                                                         node (not (origami-fold-open-p
+                                                         node (not (origami-fold-open?
                                                                     (-last-item path)))))))))))))
 
 (defun origami-open-all-nodes (buffer)
