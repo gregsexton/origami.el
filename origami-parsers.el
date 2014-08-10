@@ -66,28 +66,23 @@ children of the pair."
                  (parser-1? pair))
                 pair))))
 
-(defun origami-paren-parser (create)
-  (let ((pair (origami-pair (parser-char "(")
-                             (lambda () (origami-paren-parser create))
-                             (parser-char ")")
-                             create)))
-    (parser-0+ (parser-conj
-                (parser-do
-                 (parser-drop-until-regex "[()]")
-                 (parser-1? pair))
-                pair))))
-
 (defun origami-elisp-parser (create)
-  (let ((def-regex "(def\\w*\\s-*\\(\\s_\\|\\w\\)*"))
-    (let ((pair (origami-pair (parser-regex def-regex)
-                               (lambda () (origami-paren-parser (lambda (&rest _) nil)))
-                               (parser-char ")")
-                               create)))
-      (parser-0+ (parser-conj
-                  (parser-do
-                   (parser-drop-until-regex (concat def-regex "\\|)"))
-                   (parser-1? pair))
-                  pair)))))
+  (lambda (content)
+    (with-temp-buffer
+      (insert (parser-content-string content))
+      (beginning-of-buffer)
+      (beginning-of-defun -1)
+      (let (beg end offset acc)
+        (while (< (point) (point-max))
+          (setq beg (point))
+          (search-forward-regexp "(def\\w*\\s-*\\(\\s_\\|\\w\\)*" nil t)
+          (setq offset (- (point) beg))
+          (end-of-defun)
+          (backward-char)
+          (setq end (point))
+          (setq acc (cons (funcall create beg end offset nil) acc))
+          (beginning-of-defun -1))
+        (list (reverse acc))))))
 
 (provide 'origami-parsers)
 
