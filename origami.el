@@ -40,11 +40,12 @@
 
 ;;; overlay manipulation
 
-(defun origami-create-overlay (beg end buffer)
+(defun origami-create-overlay (beg end offset buffer)
   (when (> (- end beg) 0)
-    ;; TODO: adding 1 won't work for anything other than parsing at
-    ;; the char level -- see TODO further down too
-    (make-overlay (+ beg 1) end buffer)))
+    ;; TODO: need to show the end so offset by 1. Maybe add an
+    ;; end-offset to fold node? The opposite of this is used in
+    ;; origami-fold-end.
+    (make-overlay (+ beg offset) (- end 1) buffer)))
 
 (defun origami-hide-node-overlay (node)
   (-when-let (ov (origami-fold-data node))
@@ -76,7 +77,7 @@
 
 ;;; fold structure
 
-(defun origami-fold-node (beg end open &optional children data)
+(defun origami-fold-node (beg end offset open &optional children data)
   (let ((sorted-children (-sort (lambda (a b)
                                   (or (< (origami-fold-beg a) (origami-fold-beg b))
                                       (and (= (origami-fold-beg a) (origami-fold-beg b))
@@ -100,11 +101,13 @@
       (if (and beg-children (or (> beg beg-children) (< end end-children)))
           (error "Node does not overlap children in range. beg=%s end=%s beg-children=%s end-children=%s"
                  beg end beg-children end-children)
-        (vector beg end open sorted-children data)))))
+        (if (> (+ beg offset) end)
+            (error "Offset is not within the range of the node: beg=%s end=%s offset=%s" beg end offset)
+          (vector beg end offset open sorted-children data))))))
 
 (defun origami-fold-root-node (&optional children)
   ;; TODO: fix min and max
-  (origami-fold-node 1 100000 t children 'root))
+  (origami-fold-node 1 100000 0 t children 'root))
 
 (defun origami-fold-is-root-node? (node) (eq (origami-fold-data node) 'root))
 
@@ -112,16 +115,17 @@
   (when node
     (if (origami-fold-is-root-node? node)
         (aref node 0)
-      ;; TODO: decrementing to counter offset
-      (- (overlay-start (origami-fold-data node)) 1))))
+      (- (overlay-start (origami-fold-data node)) (origami-fold-offset node)))))
 
 (defun origami-fold-end (node)
   (when node
     (if (origami-fold-is-root-node? node)
         (aref node 1)
-      (overlay-end (origami-fold-data node)))))
+      (+ (overlay-end (origami-fold-data node)) 1))))
 
-(defun origami-fold-open? (node) (when node (aref node 2)))
+(defun origami-fold-offset (node) (when node (aref node 2)))
+
+(defun origami-fold-open? (node) (when node (aref node 3)))
 
 (defun origami-fold-open-set (node value)
   (when node
@@ -129,21 +133,23 @@
         node
       (origami-fold-node (origami-fold-beg node)
                          (origami-fold-end node)
+                         (origami-fold-offset node)
                          value
                          (origami-fold-children node)
                          (origami-fold-data node)))))
 
-(defun origami-fold-children (node) (when node (aref node 3)))
+(defun origami-fold-children (node) (when node (aref node 4)))
 
 (defun origami-fold-children-set (node children)
   (when node
     (origami-fold-node (origami-fold-beg node)
                        (origami-fold-end node)
+                       (origami-fold-offset node)
                        (origami-fold-open? node)
                        children
                        (origami-fold-data node))))
 
-(defun origami-fold-data (node) (when node (aref node 4)))
+(defun origami-fold-data (node) (when node (aref node 5)))
 
 (defun origami-fold-range-equal (a b)
   (and (equal (origami-fold-beg a) (origami-fold-beg b))
@@ -290,16 +296,16 @@ was last built."
 
 (defun origami-get-parser (buffer)
   (let* ((cached-tree (origami-get-cached-tree buffer))
-         (create (lambda (beg end children)
+         (create (lambda (beg end offset children)
                    (let ((previous-fold (-last-item (origami-fold-find-path-with-range cached-tree beg end))))
-                     (origami-fold-node beg end
+                     (origami-fold-node beg end offset
                                         (if previous-fold (origami-fold-open? previous-fold) t)
                                         children
                                         (or (-> (origami-fold-find-path-with-range
                                                  (origami-get-cached-tree buffer) beg end)
                                               -last-item
                                               origami-fold-data)
-                                            (origami-create-overlay beg end buffer)))))))
+                                            (origami-create-overlay beg end offset buffer)))))))
     (-when-let (parser-gen (cdr (assoc (buffer-local-value 'major-mode buffer)
                                        origami-parser-alist)))
       (funcall parser-gen create))))

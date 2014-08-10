@@ -49,10 +49,11 @@
 parser to allow for recursive nesting of a parser. CREATE is a
 function that should build state taking the beginning, end and
 children of the pair."
-  (parser-do (begin <- start)
+  (parser-do (initial-pos <- (parser-position))
+             (begin <- start)
              (children <- (funcall children))
              (end <- end)
-             (parser-return (funcall create begin end children))))
+             (parser-return (funcall create initial-pos end (- begin initial-pos) children))))
 
 (defun origami-c-style-parser (create)
   (let ((pair (origami-pair (parser-char "{")

@@ -119,7 +119,7 @@ consumed count."
   (parser-do (pos <- (parser-position))
              (a <- (parser-item))
              (if (funcall pred a)
-                 (parser-return pos)
+                 (parser-return (+ pos 1))
                (parser-zero))))
 
 (defun parser-char (x)
