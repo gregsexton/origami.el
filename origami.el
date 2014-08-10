@@ -76,7 +76,7 @@
 
 ;;; fold structure
 
-(defun origami-fold-node-raw (beg end open &optional children data)
+(defun origami-fold-node (beg end open &optional children data)
   (let ((sorted-children (-sort (lambda (a b)
                                   (or (< (origami-fold-beg a) (origami-fold-beg b))
                                       (and (= (origami-fold-beg a) (origami-fold-beg b))
@@ -104,7 +104,7 @@
 
 (defun origami-fold-root-node (&optional children)
   ;; TODO: fix min and max
-  (origami-fold-node-raw 1 100000 t children 'root))
+  (origami-fold-node 1 100000 t children 'root))
 
 (defun origami-fold-is-root-node? (node) (eq (origami-fold-data node) 'root))
 
@@ -127,21 +127,21 @@
   (when node
     (if (origami-fold-is-root-node? node)
         node
-      (origami-fold-node-raw (origami-fold-beg node)
-                             (origami-fold-end node)
-                             value
-                             (origami-fold-children node)
-                             (origami-fold-data node)))))
+      (origami-fold-node (origami-fold-beg node)
+                         (origami-fold-end node)
+                         value
+                         (origami-fold-children node)
+                         (origami-fold-data node)))))
 
 (defun origami-fold-children (node) (when node (aref node 3)))
 
 (defun origami-fold-children-set (node children)
   (when node
-    (origami-fold-node-raw (origami-fold-beg node)
-                           (origami-fold-end node)
-                           (origami-fold-open? node)
-                           children
-                           (origami-fold-data node))))
+    (origami-fold-node (origami-fold-beg node)
+                       (origami-fold-end node)
+                       (origami-fold-open? node)
+                       children
+                       (origami-fold-data node))))
 
 (defun origami-fold-data (node) (when node (aref node 4)))
 
@@ -255,17 +255,6 @@ with the current state and the current node at each iteration."
                            (origami-fold-children tree))
            tree))
 
-;;; TODO: why does this own copying data over? should it own copying over open status?
-;;; TODO: not happy with this signature. Breaks abstraction layering.
-(defun origami-fold-node (beg end open buffer &optional children previous-tree)
-  ;; TODO: beg and end are superfluous
-  ;; TODO: previous-tree is always true and this isn't guaranteed to produce an overlay
-  (let ((overlay (or (-> (origami-fold-find-path-with-range previous-tree beg end)
-                       -last-item
-                       origami-fold-data)
-                     (origami-create-overlay beg end buffer))))
-    (origami-fold-node-raw beg end open children overlay)))
-
 ;;; interactive utils
 
 ;;; TODO: create functions for accessing/setting the local vars and
@@ -290,11 +279,6 @@ was last built."
   (not (= (buffer-local-value 'origami-tree-tick buffer)
           (buffer-modified-tick buffer))))
 
-(defun origami-was-previously-open? (tree beg end)
-  (-if-let (node (-last-item (origami-fold-find-path-with-range tree beg end)))
-      (origami-fold-open? node)
-    t))
-
 (defun origami-build-tree (buffer parser)
   (when parser
     (with-current-buffer buffer
@@ -305,12 +289,17 @@ was last built."
           origami-fold-root-node)))))
 
 (defun origami-get-parser (buffer)
-  (let ((create (lambda (beg end children)
-                  (origami-fold-node beg end
-                                     (origami-was-previously-open? (origami-get-cached-tree buffer) beg end)
-                                     buffer
-                                     children
-                                     (origami-get-cached-tree buffer)))))
+  (let* ((cached-tree (origami-get-cached-tree buffer))
+         (create (lambda (beg end children)
+                   (let ((previous-fold (-last-item (origami-fold-find-path-with-range cached-tree beg end))))
+                     (origami-fold-node beg end
+                                        (if previous-fold (origami-fold-open? previous-fold) t)
+                                        children
+                                        (or (-> (origami-fold-find-path-with-range
+                                                 (origami-get-cached-tree buffer) beg end)
+                                              -last-item
+                                              origami-fold-data)
+                                            (origami-create-overlay beg end buffer)))))))
     (-when-let (parser-gen (cdr (assoc (buffer-local-value 'major-mode buffer)
                                        origami-parser-alist)))
       (funcall parser-gen create))))
