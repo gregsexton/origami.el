@@ -80,7 +80,8 @@ children of the pair."
           (end-of-defun)
           (backward-char)
           (setq end (point))
-          (setq acc (cons (funcall create beg end offset nil) acc))
+          (when (> offset 0)
+            (setq acc (cons (funcall create beg end offset nil) acc)))
           (beginning-of-defun -1))
         (list (reverse acc))))))
 
