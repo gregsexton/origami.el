@@ -43,8 +43,19 @@
   :type 'hook
   :group 'origami)
 
+(defun origami-pair (start children end create)
+  ;; TODO: make this a macro so I don't have to pass in the thunk?
+  "CHILDREN should be a zero-arg lambda -- a thunk -- returning a
+parser to allow for recursive nesting of a parser. CREATE is a
+function that should build state taking the beginning, end and
+children of the pair."
+  (parser-do (begin <- start)
+             (children <- (funcall children))
+             (end <- end)
+             (parser-return (funcall create begin end children))))
+
 (defun origami-c-style-parser (create)
-  (let ((pair (parser-paired (parser-char "{")
+  (let ((pair (origami-pair (parser-char "{")
                              (lambda () (origami-c-style-parser create))
                              (parser-char "}")
                              create)))
@@ -54,9 +65,9 @@
                  (parser-1? pair))
                 pair))))
 
-(defun origami-elisp-parser (create)
-  (let ((pair (parser-paired (parser-char "(")
-                             (lambda () (origami-elisp-parser create))
+(defun origami-paren-parser (create)
+  (let ((pair (origami-pair (parser-char "(")
+                             (lambda () (origami-paren-parser create))
                              (parser-char ")")
                              create)))
     (parser-0+ (parser-conj
@@ -64,6 +75,18 @@
                  (parser-drop-until-regex "[()]")
                  (parser-1? pair))
                 pair))))
+
+(defun origami-elisp-parser (create)
+  (let ((def-regex "(def\\w*\\s-*\\(\\s_\\|\\w\\)*"))
+    (let ((pair (origami-pair (parser-regex def-regex)
+                               (lambda () (origami-paren-parser (lambda (&rest _) nil)))
+                               (parser-char ")")
+                               create)))
+      (parser-0+ (parser-conj
+                  (parser-do
+                   (parser-drop-until-regex (concat def-regex "\\|)"))
+                   (parser-1? pair))
+                  pair)))))
 
 (provide 'origami-parsers)
 

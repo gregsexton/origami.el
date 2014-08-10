@@ -186,16 +186,6 @@ recursion. We fail if we don't consume something."
         nil
       (parser-run (parser-item) content))))
 
-(defun parser-paired (start children end create)
-  ;; TODO: make this a macro so I don't have to pass in the thunk?
-  ;; TODO: move this to origami-parsers?
-  "CHILDREN should be a zero-arg lambda -- a thunk -- returning a
-parser to allow for recursive nesting of a parser."
-  (parser-do (begin <- start)
-             (children <- (funcall children))
-             (end <- end)
-             (parser-return (funcall create begin end children))))
-
 (provide 'parser)
 
 ;;; parser.el ends here
