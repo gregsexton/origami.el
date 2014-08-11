@@ -449,8 +449,7 @@ a fold, move to the end of the fold that point is in."
     (-> tree
       (origami-fold-postorder-reduce (lambda (state n)
                                        (cons (origami-fold-end n) state)) nil)
-      (->> (-reduce (lambda (state pos)
-                      (if (<= pos point) state pos))))
+      (->> (-last (lambda (pos) (> pos point))))
       goto-char)))
 
 (defun origami-reset (buffer)
