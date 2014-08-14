@@ -261,6 +261,14 @@ with the current state and the current node at each iteration."
                            (origami-fold-children tree))
            tree))
 
+(defun origami-fold-node-recursively-closed? (node)
+  (origami-fold-postorder-reduce node (lambda (acc node)
+                                        (and acc (not (origami-fold-open? node)))) t))
+
+(defun origami-fold-node-recursively-open? (node)
+  (origami-fold-postorder-reduce node (lambda (acc node)
+                                        (and acc (origami-fold-open? node))) t))
+
 ;;; interactive utils
 
 ;;; TODO: create functions for accessing/setting the local vars and
@@ -324,6 +332,20 @@ otherwise fetch cached tree."
                        'origami-hide-overlay-from-fold-tree-fn
                        'origami-show-overlay-from-fold-tree-fn
                        'origami-change-overlay-from-fold-node-fn)))
+
+(defun origami-search-forward-for-path (buffer point)
+  (let (end)
+    (with-current-buffer buffer
+      (save-excursion
+        (goto-char point)
+        (setq end (line-end-position))))
+    (-when-let (tree (origami-get-fold-tree buffer))
+      (-when-let (path (origami-fold-find-path-containing tree point))
+        (let ((forward-node (-first (lambda (node)
+                                      (and (>= (origami-fold-beg node) point)
+                                           (<= (origami-fold-beg node) end)))
+                                    (origami-fold-children (-last-item path)))))
+          (if forward-node (append path (list forward-node)) path))))))
 
 ;;; commands
 
@@ -389,23 +411,25 @@ as to ensure seeing where POINT is."
 
 (defun origami-forward-toggle-node (buffer point)
   (interactive (list (current-buffer) (point)))
-  (let (end)
-    (with-current-buffer buffer
-      (save-excursion
-        (goto-char point)
-        (setq end (line-end-position))))
-    (-when-let (tree (origami-get-fold-tree buffer))
-      (-when-let (path (origami-fold-find-path-containing tree point))
-        (let ((forward-node (-first (lambda (node)
-                                      (and (>= (origami-fold-beg node) point)
-                                           (<= (origami-fold-beg node) end)))
-                                    (origami-fold-children (-last-item path)))))
-          (let ((path (if forward-node (append path (list forward-node)) path)))
-            (origami-apply-new-tree buffer tree (origami-fold-assoc
-                                                 path (lambda (node)
-                                                        (origami-fold-open-set
-                                                         node (not (origami-fold-open?
-                                                                    (-last-item path)))))))))))))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (-when-let (path (origami-search-forward-for-path buffer point))
+      (origami-apply-new-tree buffer tree (origami-fold-assoc
+                                           path (lambda (node)
+                                                  (origami-fold-open-set
+                                                   node (not (origami-fold-open?
+                                                              (-last-item path))))))))))
+
+(defun origami-recursively-toggle-node (buffer point)
+  (interactive (list (current-buffer) (point)))
+  (-when-let (path (origami-search-forward-for-path buffer point))
+    (let ((node (-last-item path)))
+      (if (eq last-command 'origami-recursively-toggle-node)
+          (cond ((origami-fold-node-recursively-open? node)
+                 (origami-close-node-recursively buffer (origami-fold-beg node)))
+                ((origami-fold-node-recursively-closed? node)
+                 (origami-toggle-node buffer (origami-fold-beg node)))
+                (t (origami-open-node-recursively buffer (origami-fold-beg node))))
+        (origami-forward-toggle-node buffer point)))))
 
 (defun origami-open-all-nodes (buffer)
   (interactive (list (current-buffer)))
