@@ -273,30 +273,30 @@ with the current state and the current node at each iteration."
 
 ;;; linear history structure
 
-;;; TODO: size-limiting of past and future
-;;; TODO: check for nils
-
 (defun origami-h-new (present)
   "Create a new history structure."
   (vector nil present nil))
 
 (defun origami-h-push (h new)
   "Create a new history structure with new as the present value."
-  (let ((past (aref h 0))
-        (present (aref h 1)))
-    (vector (cons present past) new nil)))
+  (when new
+    (let ((past (aref h 0))
+          (present (aref h 1)))
+      (vector (cons present (-take 19 past)) new nil))))
 
 (defun origami-h-undo (h)
   (let ((past (aref h 0))
         (present (aref h 1))
         (future (aref h 2)))
-    (vector (cdr past) (car past) (cons present future))))
+    (if (null past) h
+      (vector (cdr past) (car past) (cons present future)))))
 
 (defun origami-h-redo (h)
   (let ((past (aref h 0))
         (present (aref h 1))
         (future (aref h 2)))
-    (vector (cons present past) (car future) (cdr future))))
+    (if (null future) h
+      (vector (cons present past) (car future) (cdr future)))))
 
 (defun origami-h-present (h)
   (when h (aref h 1)))
