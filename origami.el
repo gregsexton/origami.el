@@ -510,8 +510,6 @@ as to ensure seeing where POINT is."
 (defun origami-show-only-node (buffer point)
   (interactive (list (current-buffer) (point)))
   (origami-close-all-nodes buffer)
-  ;; pop this intermediate tree state, making this an atomic operation
-  (origami-pop-cached-tree buffer)
   (origami-show-node buffer point))
 
 (defun origami-previous-fold (buffer point)
