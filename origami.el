@@ -151,6 +151,8 @@
 
 (defun origami-fold-data (node) (when node (aref node 5)))
 
+;;; fold structure utils
+
 (defun origami-fold-range-equal (a b)
   (and (equal (origami-fold-beg a) (origami-fold-beg b))
        (equal (origami-fold-end a) (origami-fold-end b))))
@@ -273,6 +275,7 @@ with the current state and the current node at each iteration."
 
 (defun origami-setup-local-vars (buffer)
   (with-current-buffer buffer
+    (set (make-local-variable 'origami-stack) nil)
     (set (make-local-variable 'origami-tree) (origami-fold-root-node))
     (set (make-local-variable 'origami-tree-tick) 0)))
 
@@ -281,12 +284,35 @@ with the current state and the current node at each iteration."
       (error "Necessary local variables were not available"))
   (buffer-local-value 'origami-tree buffer))
 
+(defun origami-get-tree-stack (buffer)
+  (or (local-variable-p 'origami-stack buffer)
+      (error "Necessary local variables were not available"))
+  (buffer-local-value 'origami-stack buffer))
+
+(defun origami-set-tree-stack (buffer stack)
+  (or (local-variable-p 'origami-stack buffer)
+      (error "Necessary local variables were not available"))
+  (with-current-buffer buffer
+    (setq origami-stack stack)))
+
+(defun origami-push-cached-tree (buffer tree)
+  ;; TODO: size-limit the stack
+  (let ((stack (origami-get-tree-stack buffer)))
+    (when (not (eq tree (car stack)))
+      (origami-set-tree-stack buffer (cons tree stack)))))
+
+(defun origami-pop-cached-tree (buffer)
+  (-when-let (stack (origami-get-tree-stack buffer))
+    (origami-set-tree-stack buffer (cdr stack))
+    (car stack)))
+
 (defun origami-store-cached-tree (buffer tree)
   (or (local-variable-p 'origami-tree buffer)
       (local-variable-p 'origami-tree-tick buffer)
       (error "Necessary local variables were not available"))
   (with-current-buffer buffer
     (setq origami-tree-tick (buffer-modified-tick))
+    (origami-push-cached-tree buffer tree)
     (setq origami-tree tree)))
 
 (defun origami-rebuild-tree? (buffer)
@@ -452,6 +478,8 @@ as to ensure seeing where POINT is."
 (defun origami-show-only-node (buffer point)
   (interactive (list (current-buffer) (point)))
   (origami-close-all-nodes buffer)
+  ;; pop this intermediate tree state, making this an atomic operation
+  (origami-pop-cached-tree buffer)
   (origami-show-node buffer point))
 
 (defun origami-previous-fold (buffer point)
@@ -477,6 +505,12 @@ a fold, move to the end of the fold that point is in."
                                        (cons (origami-fold-end n) state)) nil)
       (->> (-last (lambda (pos) (> pos point))))
       goto-char)))
+
+(defun origami-undo (buffer)
+  (interactive (list (current-buffer)))
+  (let ((current-tree (origami-pop-cached-tree buffer))
+        (old-tree (origami-pop-cached-tree buffer)))
+    (origami-apply-new-tree buffer current-tree old-tree)))
 
 (defun origami-reset (buffer)
   (interactive (list (current-buffer)))
