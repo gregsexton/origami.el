@@ -271,49 +271,63 @@ with the current state and the current node at each iteration."
   (origami-fold-postorder-reduce node (lambda (acc node)
                                         (and acc (origami-fold-open? node))) t))
 
+;;; linear history structure
+
+;;; TODO: size-limiting of past and future
+;;; TODO: check for nils
+
+(defun origami-h-new (present)
+  "Create a new history structure."
+  (vector nil present nil))
+
+(defun origami-h-push (h new)
+  "Create a new history structure with new as the present value."
+  (let ((past (aref h 0))
+        (present (aref h 1)))
+    (vector (cons present past) new nil)))
+
+(defun origami-h-undo (h)
+  (let ((past (aref h 0))
+        (present (aref h 1))
+        (future (aref h 2)))
+    (vector (cdr past) (car past) (cons present future))))
+
+(defun origami-h-redo (h)
+  (let ((past (aref h 0))
+        (present (aref h 1))
+        (future (aref h 2)))
+    (vector (cons present past) (car future) (cdr future))))
+
+(defun origami-h-present (h)
+  (when h (aref h 1)))
+
 ;;; interactive utils
 
 (defun origami-setup-local-vars (buffer)
   (with-current-buffer buffer
-    (set (make-local-variable 'origami-stack) nil)
-    (set (make-local-variable 'origami-tree) (origami-fold-root-node))
+    (set (make-local-variable 'origami-history)
+         (origami-h-new (origami-fold-root-node)))
     (set (make-local-variable 'origami-tree-tick) 0)))
 
 (defun origami-get-cached-tree (buffer)
-  (or (local-variable-p 'origami-tree buffer)
+  (or (local-variable-p 'origami-history buffer)
       (error "Necessary local variables were not available"))
-  (buffer-local-value 'origami-tree buffer))
-
-(defun origami-get-tree-stack (buffer)
-  (or (local-variable-p 'origami-stack buffer)
-      (error "Necessary local variables were not available"))
-  (buffer-local-value 'origami-stack buffer))
-
-(defun origami-set-tree-stack (buffer stack)
-  (or (local-variable-p 'origami-stack buffer)
-      (error "Necessary local variables were not available"))
-  (with-current-buffer buffer
-    (setq origami-stack stack)))
-
-(defun origami-push-cached-tree (buffer tree)
-  ;; TODO: size-limit the stack
-  (let ((stack (origami-get-tree-stack buffer)))
-    (when (not (eq tree (car stack)))
-      (origami-set-tree-stack buffer (cons tree stack)))))
-
-(defun origami-pop-cached-tree (buffer)
-  (-when-let (stack (origami-get-tree-stack buffer))
-    (origami-set-tree-stack buffer (cdr stack))
-    (car stack)))
+  (origami-h-present (buffer-local-value 'origami-history buffer)))
 
 (defun origami-store-cached-tree (buffer tree)
-  (or (local-variable-p 'origami-tree buffer)
-      (local-variable-p 'origami-tree-tick buffer)
+  (or (and (local-variable-p 'origami-history buffer)
+           (local-variable-p 'origami-tree-tick buffer))
       (error "Necessary local variables were not available"))
   (with-current-buffer buffer
     (setq origami-tree-tick (buffer-modified-tick))
-    (origami-push-cached-tree buffer tree)
-    (setq origami-tree tree)))
+    (setq origami-history (origami-h-push origami-history tree)))
+  tree)
+
+(defun origami-update-history (buffer f)
+  (or (local-variable-p 'origami-history buffer)
+      (error "Necessary local variables were not available"))
+  (with-current-buffer buffer
+    (setq origami-history (funcall f origami-history))))
 
 (defun origami-rebuild-tree? (buffer)
   "Determines if the tree needs to be rebuilt for BUFFER since it
@@ -356,7 +370,7 @@ otherwise fetch cached tree."
 
 (defun origami-apply-new-tree (buffer old-tree new-tree)
   (when new-tree
-    (origami-fold-diff old-tree (origami-store-cached-tree buffer new-tree)
+    (origami-fold-diff old-tree new-tree
                        'origami-hide-overlay-from-fold-tree-fn
                        'origami-show-overlay-from-fold-tree-fn
                        'origami-change-overlay-from-fold-node-fn)))
@@ -383,19 +397,23 @@ otherwise fetch cached tree."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
-      (origami-apply-new-tree buffer tree (origami-fold-assoc path (lambda (node)
-                                                                     (origami-fold-open-set node t)))))))
+      (origami-apply-new-tree buffer tree (origami-store-cached-tree
+                                           buffer
+                                           (origami-fold-assoc path (lambda (node)
+                                                                      (origami-fold-open-set node t))))))))
 
 (defun origami-open-node-recursively (buffer point)
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
       (origami-apply-new-tree
-       buffer tree (origami-fold-assoc path
-                                       (lambda (node)
-                                         (origami-fold-map (lambda (node)
-                                                             (origami-fold-open-set node t))
-                                                           node)))))))
+       buffer tree (origami-store-cached-tree
+                    buffer
+                    (origami-fold-assoc path
+                                        (lambda (node)
+                                          (origami-fold-map (lambda (node)
+                                                              (origami-fold-open-set node t))
+                                                            node))))))))
 
 (defun origami-show-node (buffer point)
   "Like `origami-open-node' but opens parent nodes recursively so
@@ -403,49 +421,59 @@ as to ensure seeing where POINT is."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
-      (origami-apply-new-tree buffer tree (origami-fold-path-map
-                                           (lambda (node)
-                                             (origami-fold-open-set node t))
-                                           path)))))
+      (origami-apply-new-tree buffer tree (origami-store-cached-tree
+                                           buffer
+                                           (origami-fold-path-map
+                                            (lambda (node)
+                                              (origami-fold-open-set node t))
+                                            path))))))
 
 (defun origami-close-node (buffer point)
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
-      (origami-apply-new-tree buffer tree (origami-fold-assoc
-                                           path (lambda (node)
-                                                  (origami-fold-open-set node nil)))))))
+      (origami-apply-new-tree buffer tree (origami-store-cached-tree
+                                           buffer
+                                           (origami-fold-assoc
+                                            path (lambda (node)
+                                                   (origami-fold-open-set node nil))))))))
 
 (defun origami-close-node-recursively (buffer point)
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
       (origami-apply-new-tree
-       buffer tree (origami-fold-assoc path
-                                       (lambda (node)
-                                         (origami-fold-map (lambda (node)
-                                                             (origami-fold-open-set node nil))
-                                                           node)))))))
+       buffer tree (origami-store-cached-tree
+                    buffer
+                    (origami-fold-assoc path
+                                        (lambda (node)
+                                          (origami-fold-map (lambda (node)
+                                                              (origami-fold-open-set node nil))
+                                                            node))))))))
 
 (defun origami-toggle-node (buffer point)
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
-      (origami-apply-new-tree buffer tree (origami-fold-assoc
-                                           path (lambda (node)
-                                                  (origami-fold-open-set
-                                                   node (not (origami-fold-open?
-                                                              (-last-item path))))))))))
+      (origami-apply-new-tree buffer tree (origami-store-cached-tree
+                                           buffer
+                                           (origami-fold-assoc
+                                            path (lambda (node)
+                                                   (origami-fold-open-set
+                                                    node (not (origami-fold-open?
+                                                               (-last-item path)))))))))))
 
 (defun origami-forward-toggle-node (buffer point)
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-search-forward-for-path buffer point))
-      (origami-apply-new-tree buffer tree (origami-fold-assoc
-                                           path (lambda (node)
-                                                  (origami-fold-open-set
-                                                   node (not (origami-fold-open?
-                                                              (-last-item path))))))))))
+      (origami-apply-new-tree buffer tree (origami-store-cached-tree
+                                           buffer
+                                           (origami-fold-assoc
+                                            path (lambda (node)
+                                                   (origami-fold-open-set
+                                                    node (not (origami-fold-open?
+                                                               (-last-item path)))))))))))
 
 (defun origami-recursively-toggle-node (buffer point)
   (interactive (list (current-buffer) (point)))
@@ -462,18 +490,22 @@ as to ensure seeing where POINT is."
 (defun origami-open-all-nodes (buffer)
   (interactive (list (current-buffer)))
   (-when-let (tree (origami-get-fold-tree buffer))
-    (origami-apply-new-tree buffer tree (origami-fold-map
-                                         (lambda (node)
-                                           (origami-fold-open-set node t))
-                                         tree))))
+    (origami-apply-new-tree buffer tree (origami-store-cached-tree
+                                         buffer
+                                         (origami-fold-map
+                                          (lambda (node)
+                                            (origami-fold-open-set node t))
+                                          tree)))))
 
 (defun origami-close-all-nodes (buffer)
   (interactive (list (current-buffer)))
   (-when-let (tree (origami-get-fold-tree buffer))
-    (origami-apply-new-tree buffer tree (origami-fold-map
-                                         (lambda (node)
-                                           (origami-fold-open-set node nil))
-                                         tree))))
+    (origami-apply-new-tree buffer tree (origami-store-cached-tree
+                                         buffer
+                                         (origami-fold-map
+                                          (lambda (node)
+                                            (origami-fold-open-set node nil))
+                                          tree)))))
 
 (defun origami-show-only-node (buffer point)
   (interactive (list (current-buffer) (point)))
@@ -508,9 +540,17 @@ a fold, move to the end of the fold that point is in."
 
 (defun origami-undo (buffer)
   (interactive (list (current-buffer)))
-  (let ((current-tree (origami-pop-cached-tree buffer))
-        (old-tree (origami-pop-cached-tree buffer)))
-    (origami-apply-new-tree buffer current-tree old-tree)))
+  (let ((current-tree (origami-get-cached-tree buffer)))
+    (origami-update-history buffer (lambda (h) (origami-h-undo h)))
+    (let ((old-tree (origami-get-cached-tree buffer)))
+      (origami-apply-new-tree buffer current-tree old-tree))))
+
+(defun origami-redo (buffer)
+  (interactive (list (current-buffer)))
+  (let ((current-tree (origami-get-cached-tree buffer)))
+    (origami-update-history buffer (lambda (h) (origami-h-redo h)))
+    (let ((new-tree (origami-get-cached-tree buffer)))
+      (origami-apply-new-tree buffer current-tree new-tree))))
 
 (defun origami-reset (buffer)
   (interactive (list (current-buffer)))
