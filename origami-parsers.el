@@ -75,7 +75,7 @@ children of the pair."
       (let (beg end offset acc)
         (while (< (point) (point-max))
           (setq beg (point))
-          (search-forward-regexp "(def\\w*\\s-*\\(\\s_\\|\\w\\)*" nil t)
+          (search-forward-regexp "(def\\w*\\s-*\\(\\s_\\|\\w\\|[?!]\\)*\\([ \\t]*(.*?)\\)?" nil t)
           (setq offset (- (point) beg))
           (end-of-defun)
           (backward-char)
