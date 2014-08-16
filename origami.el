@@ -271,8 +271,10 @@ with the current state and the current node at each iteration."
 
 ;;; interactive utils
 
-;;; TODO: create functions for accessing/setting the local vars and
-;;; make sure these are used -- error if the buffer local var isn't set
+(defun origami-setup-local-vars (buffer)
+  (with-current-buffer buffer
+    (set (make-local-variable 'origami-tree) (origami-fold-root-node))
+    (set (make-local-variable 'origami-tree-tick) 0)))
 
 (defun origami-get-cached-tree (buffer)
   (or (local-variable-p 'origami-tree buffer)
@@ -478,7 +480,7 @@ a fold, move to the end of the fold that point is in."
 
 (defun origami-reset (buffer)
   (interactive (list (current-buffer)))
-  (origami-store-cached-tree buffer (origami-fold-root-node))
+  (origami-setup-local-vars buffer)
   (origami-remove-all-overlays buffer))
 
 ;;; minor mode
@@ -508,11 +510,7 @@ Key bindings:
   :lighter nil
   :keymap origami-mode-map
   :init-value nil
-  (if origami-mode                      ;enabling if t
-      (progn
-        (set (make-local-variable 'origami-tree) (origami-fold-root-node))
-        (set (make-local-variable 'origami-tree-tick) (buffer-modified-tick)))
-    (origami-reset (current-buffer))))
+  (origami-reset (current-buffer)))
 
 (provide 'origami)
 
