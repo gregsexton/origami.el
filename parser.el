@@ -63,7 +63,8 @@
     (lambda (s)
       (let ((new-result (parser-run m s)))
         (if (null new-result) nil
-          (destructuring-bind (new-value . new-state) new-result
+          (let ((new-value (car new-result))
+                (new-state (cdr new-result)))
             (parser-run (funcall f new-value) new-state)))))))
 
 (defmacro parser-do (expr &rest more)
