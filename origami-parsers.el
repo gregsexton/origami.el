@@ -38,7 +38,8 @@
     (c-mode                . origami-c-style-parser)
     (c++-mode              . origami-c-style-parser)
     (emacs-lisp-mode       . origami-elisp-parser)
-    (lisp-interaction-mode . origami-elisp-parser))
+    (lisp-interaction-mode . origami-elisp-parser)
+    (clojure-mode          . origami-elisp-parser))
   "alist mapping major-mode to parser function."
   :type 'hook
   :group 'origami)
