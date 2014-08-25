@@ -39,7 +39,7 @@
     (c++-mode              . origami-c-style-parser)
     (emacs-lisp-mode       . origami-elisp-parser)
     (lisp-interaction-mode . origami-elisp-parser)
-    (clojure-mode          . origami-elisp-parser))
+    (clojure-mode          . origami-clj-parser))
   "alist mapping major-mode to parser function."
   :type 'hook
   :group 'origami)
@@ -67,7 +67,7 @@ children of the pair."
                  (parser-1? pair))
                 pair))))
 
-(defun origami-elisp-parser (create)
+(defun origami-lisp-parser (create regex)
   (lambda (content)
     (with-temp-buffer
       (insert (parser-content-string content))
@@ -76,7 +76,7 @@ children of the pair."
       (let (beg end offset acc)
         (while (< (point) (point-max))
           (setq beg (point))
-          (search-forward-regexp "(def\\w*\\s-*\\(\\s_\\|\\w\\|[?!]\\)*\\([ \\t]*(.*?)\\)?" nil t)
+          (search-forward-regexp regex nil t)
           (setq offset (- (point) beg))
           (end-of-defun)
           (backward-char)
@@ -85,6 +85,12 @@ children of the pair."
             (setq acc (cons (funcall create beg end offset nil) acc)))
           (beginning-of-defun -1))
         (list (reverse acc))))))
+
+(defun origami-elisp-parser (create)
+  (origami-lisp-parser create "(def\\w*\\s-*\\(\\s_\\|\\w\\|[?!]\\)*\\([ \\t]*(.*?)\\)?"))
+
+(defun origami-clj-parser (create)
+  (origami-lisp-parser create "(def\\(\\w\\|-\\)*\\s-*\\(\\s_\\|\\w\\|[?!]\\)*\\([ \\t]*\\[.*?\\]\\)?"))
 
 (provide 'origami-parsers)
 
