@@ -37,6 +37,7 @@
   '((java-mode             . origami-c-style-parser)
     (c-mode                . origami-c-style-parser)
     (c++-mode              . origami-c-style-parser)
+    (cperl-mode            . origami-c-style-parser)
     (emacs-lisp-mode       . origami-elisp-parser)
     (lisp-interaction-mode . origami-elisp-parser)
     (clojure-mode          . origami-clj-parser))
