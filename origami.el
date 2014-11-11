@@ -338,7 +338,7 @@ was last built."
 (defun origami-build-tree (buffer parser)
   (when parser
     (with-current-buffer buffer
-      (let ((contents (buffer-string)))
+      (let ((contents (buffer-substring-no-properties (point-min) (point-max))))
         (-> parser
           (parser-run (parser-content 0 contents))
           car

@@ -45,28 +45,45 @@
   :type 'hook
   :group 'origami)
 
-(defun origami-pair (start children end create)
-  ;; TODO: make this a macro so I don't have to pass in the thunk?
-  "CHILDREN should be a zero-arg lambda -- a thunk -- returning a
-parser to allow for recursive nesting of a parser. CREATE is a
-function that should build state taking the beginning, end and
-children of the pair."
-  (parser-do (initial-pos <- (parser-position))
-             (begin <- start)
-             (children <- (funcall children))
-             (end <- end)
-             (parser-return (funcall create initial-pos end (- begin initial-pos) children))))
+;;; TODO: generalize to take a function? then could use a regex or
+;;; begin-defun etc?
+(defun origami-get-positions (content regex)
+  (with-temp-buffer
+    (insert content)
+    (beginning-of-buffer)
+    (let (acc)
+      (while (re-search-forward regex nil t)
+        (setq acc (cons (cons (match-string 0) (point)) acc)))
+      (reverse acc))))
+
+(defun origami-build-pair-tree (create positions)
+  ;; this is so horrible, but fast
+  (let (acc beg (should-continue t))
+    (while (and should-continue positions)
+      (cond ((equal (caar positions) "{")
+             (if beg                       ;go down a level
+                 (let* ((res (origami-build-pair-tree create positions))
+                        (new-pos (car res))
+                        (children (cdr res)))
+                   (setq positions (cdr new-pos))
+                   (setq acc (cons (funcall create beg (cdar new-pos) 0 children) acc))
+                   (setq beg nil))
+               ;; begin a new pair
+               (setq beg (cdar positions))
+               (setq positions (cdr positions))))
+            ((equal (caar positions) "}")
+             (if beg
+                 (progn                 ;close no children
+                   (setq acc (cons (funcall create beg (cdar positions) 0 nil) acc))
+                   (setq positions (cdr positions))
+                   (setq beg nil))
+               (setq should-continue nil)))))
+    (cons positions (reverse acc))))
 
 (defun origami-c-style-parser (create)
-  (let ((pair (origami-pair (parser-char "{")
-                             (lambda () (origami-c-style-parser create))
-                             (parser-char "}")
-                             create)))
-    (parser-0+ (parser-conj
-                (parser-do
-                 (parser-drop-until-regex "[{}]")
-                 (parser-1? pair))
-                pair))))
+  (lambda (content)
+    (let ((positions (origami-get-positions (parser-content-string content) "[{}]")))
+      (list (cdr (origami-build-pair-tree create positions))))))
 
 (defun origami-lisp-parser (create regex)
   (lambda (content)
