@@ -31,8 +31,6 @@
 
 ;;; Code:
 
-(require 'parser)
-
 (defcustom origami-parser-alist
   '((java-mode             . origami-c-style-parser)
     (c-mode                . origami-c-style-parser)
@@ -73,7 +71,7 @@
                (setq positions (cdr positions))))
             ((equal (caar positions) "}")
              (if beg
-                 (progn                 ;close no children
+                 (progn                 ;close with no children
                    (setq acc (cons (funcall create beg (cdar positions) 0 nil) acc))
                    (setq positions (cdr positions))
                    (setq beg nil))
@@ -82,13 +80,13 @@
 
 (defun origami-c-style-parser (create)
   (lambda (content)
-    (let ((positions (origami-get-positions (parser-content-string content) "[{}]")))
-      (list (cdr (origami-build-pair-tree create positions))))))
+    (let ((positions (origami-get-positions content "[{}]")))
+      (cdr (origami-build-pair-tree create positions)))))
 
 (defun origami-lisp-parser (create regex)
   (lambda (content)
     (with-temp-buffer
-      (insert (parser-content-string content))
+      (insert content)
       (beginning-of-buffer)
       (beginning-of-defun -1)
       (let (beg end offset acc)
@@ -102,7 +100,7 @@
           (when (> offset 0)
             (setq acc (cons (funcall create beg end offset nil) acc)))
           (beginning-of-defun -1))
-        (list (reverse acc))))))
+        (reverse acc)))))
 
 (defun origami-elisp-parser (create)
   (origami-lisp-parser create "(def\\w*\\s-*\\(\\s_\\|\\w\\|[?!]\\)*\\([ \\t]*(.*?)\\)?"))
@@ -112,4 +110,4 @@
 
 (provide 'origami-parsers)
 
-;;; parser.el ends here
+;;; origami-parsers.el ends here

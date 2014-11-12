@@ -35,7 +35,6 @@
 (require 'dash)
 (require 's)
 (require 'cl)
-(require 'parser)
 (require 'origami-parsers)
 
 ;;; overlay manipulation
@@ -340,8 +339,7 @@ was last built."
     (with-current-buffer buffer
       (let ((contents (buffer-substring-no-properties (point-min) (point-max))))
         (-> parser
-          (parser-run (parser-content 0 contents))
-          car
+          (funcall contents)
           origami-fold-root-node)))))
 
 (defun origami-get-parser (buffer)
