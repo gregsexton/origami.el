@@ -50,46 +50,87 @@ using a parser.)
 
 The following commands are supplied to manipulate folds in the buffer:
 
-* origami-open-node -- Open a fold node.
+<table>
+  <tr>
+    <td>origami-open-node</td>
+    <td>Open a fold node.</td>
+  </tr>
 
-* origami-open-node-recursively -- Open a fold node and all of its
-  children.
+  <tr>
+    <td>origami-open-node-recursively</td>
+    <td>Open a fold node and all of its children.</td>
+  </tr>
 
-* origami-show-node -- Like origami-open-node but also opens parent
-  fold nodes recursively so as to ensure the position where point is
-  is visible.
+  <tr>
+    <td>origami-show-node</td>
+    <td>Like origami-open-node but also opens parent fold nodes recursively so as to ensure the position where point is is visible.</td>
+  </tr>
 
-* origami-close-node -- Close a fold node.
+  <tr>
+    <td>origami-close-node</td>
+    <td>Close a fold node.</td>
+  </tr>
 
-* origami-close-node-recursively -- Close a fold node and all of its
-  children.
+  <tr>
+    <td>origami-close-node-recursively</td>
+    <td>Close a fold node and all of its children.</td>
+  </tr>
 
-* origami-toggle-node -- Toggle open or closed a fold node.
+  <tr>
+    <td>origami-toggle-node</td>
+    <td>Toggle open or closed a fold node.</td>
+  </tr>
 
-* origami-forward-toggle-node -- Search forward on this line for a
-  node and toggle it open or closed. This makes toggling nodes much
-  more convenient.
+  <tr>
+    <td>origami-forward-toggle-node</td>
+    <td>Search forward on this line for a node and toggle it open or closed. This makes toggling nodes much more convenient.</td>
+  </tr>
 
-* origami-recursively-toggle-node -- Acts like org-mode header
-  collapsing. Cycle a fold between open, recursively open, closed.
+  <tr>
+    <td>origami-recursively-toggle-node</td>
+    <td>Acts like org-mode header collapsing. Cycle a fold between open, recursively open, closed.</td>
+  </tr>
 
-* origami-open-all-nodes -- Open every fold in the buffer.
+  <tr>
+    <td>origami-open-all-nodes</td>
+    <td>Open every fold in the buffer.</td>
+  </tr>
 
-* origami-close-all-nodes -- Close every fold in the buffer.
+  <tr>
+    <td>origami-close-all-nodes</td>
+    <td>Close every fold in the buffer.</td>
+  </tr>
 
-* origami-show-only-node -- Close everything but the folds necessary
-  to see the point. Very useful for concentrating on an area of code.
+  <tr>
+    <td>origami-show-only-node</td>
+    <td>Close everything but the folds necessary to see the point. Very useful for concentrating on an area of code.</td>
+  </tr>
 
-* origami-previous-fold -- Move to the previous fold.
+  <tr>
+    <td>origami-previous-fold</td>
+    <td>Move to the previous fold.</td>
+  </tr>
 
-* origami-next-fold -- Move to the next fold.
+  <tr>
+    <td>origami-next-fold</td>
+    <td>Move to the next fold.</td>
+  </tr>
 
-* origami-undo -- Undo the last folding operation.
+  <tr>
+    <td>origami-undo</td>
+    <td>Undo the last folding operation.</td>
+  </tr>
 
-* origami-redo -- Redo the last undone folding operation.
+  <tr>
+    <td>origami-redo</td>
+    <td>Redo the last undone folding operation.</td>
+  </tr>
 
-* origami-reset -- Remove all folds from the buffer and reset all
-  origami state. Useful if origami messes up!
+  <tr>
+    <td>origami-reset</td>
+    <td>Remove all folds from the buffer and reset all origami state. Useful if origami messes up!</td>
+  </tr>
+</table>
 
 # Does it support my favourite major-mode?
 
