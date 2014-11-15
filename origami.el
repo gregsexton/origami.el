@@ -105,8 +105,8 @@
           (vector beg end offset open sorted-children data))))))
 
 (defun origami-fold-root-node (&optional children)
-  ;; TODO: fix min and max
-  (origami-fold-node 1 100000 0 t children 'root))
+  "Create a root container node."
+  (origami-fold-node 1 most-positive-fixnum 0 t children 'root))
 
 (defun origami-fold-is-root-node? (node) (eq (origami-fold-data node) 'root))
 
@@ -196,8 +196,6 @@ F applied to the leaf."
                    (origami-fold-children new))))
 
 (defun origami-fold-postorder-each (node f)
-  ;; TODO: this isn't recursive. Not sure that it should be, looking at
-  ;; usage. Fix or rename.
   (-each (origami-fold-children node) f)
   (funcall f node))
 
@@ -389,9 +387,9 @@ otherwise fetch cached tree."
 
 ;;; commands
 
-;;; TODO: document all commands
-
 (defun origami-open-node (buffer point)
+  "Open the fold node at POINT in BUFFER. The fold node opened
+will be the deepest nested at POINT."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
@@ -401,6 +399,8 @@ otherwise fetch cached tree."
                                                                       (origami-fold-open-set node t))))))))
 
 (defun origami-open-node-recursively (buffer point)
+  "Open the fold node and all of its children at POINT in BUFFER.
+The fold node opened will be the deepest nested at POINT."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
@@ -414,8 +414,9 @@ otherwise fetch cached tree."
                                                             node))))))))
 
 (defun origami-show-node (buffer point)
-  "Like `origami-open-node' but opens parent nodes recursively so
-as to ensure seeing where POINT is."
+  "Like `origami-open-node' but also opens parent fold nodes
+recursively so as to ensure the position where POINT is is
+visible."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
@@ -427,6 +428,8 @@ as to ensure seeing where POINT is."
                                             path))))))
 
 (defun origami-close-node (buffer point)
+  "Close the fold node at POINT in BUFFER. The fold node closed
+will be the deepest nested at POINT."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
@@ -437,6 +440,8 @@ as to ensure seeing where POINT is."
                                                    (origami-fold-open-set node nil))))))))
 
 (defun origami-close-node-recursively (buffer point)
+  "Close the fold node and all of its children at POINT in BUFFER.
+The fold node closed will be the deepest nested at POINT."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
@@ -450,6 +455,8 @@ as to ensure seeing where POINT is."
                                                             node))))))))
 
 (defun origami-toggle-node (buffer point)
+  "Toggle the fold node at POINT in BUFFER open or closed. The
+fold node opened or closed will be the deepest nested at POINT."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
@@ -462,6 +469,10 @@ as to ensure seeing where POINT is."
                                                                (-last-item path)))))))))))
 
 (defun origami-forward-toggle-node (buffer point)
+  "Like `origami-toggle-node' but search forward in BUFFER for a
+fold node. If a fold node is found after POINT and before the
+next line break, this will be toggled. Otherwise, behave exactly
+as `origami-toggle-node'."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-search-forward-for-path buffer point))
@@ -474,6 +485,16 @@ as to ensure seeing where POINT is."
                                                                (-last-item path)))))))))))
 
 (defun origami-recursively-toggle-node (buffer point)
+  "Cycle a fold node between recursively closed, open and
+recursively open depending on its current state. The fold node
+acted upon is searched for forward in BUFFER from POINT. If a
+fold node is found after POINT and before the next line break,
+this will be toggled otherwise the fold node nested deepest at
+POINT will be acted upon.
+
+This command will only work if bound to a key. For those familiar
+with org-mode heading opening and collapsing, this will feel
+familiar. It's easiest to grasp this just by giving it a go."
   (interactive (list (current-buffer) (point)))
   (-when-let (path (origami-search-forward-for-path buffer point))
     (let ((node (-last-item path)))
@@ -486,6 +507,7 @@ as to ensure seeing where POINT is."
         (origami-forward-toggle-node buffer point)))))
 
 (defun origami-open-all-nodes (buffer)
+  "Recursively open every fold node in BUFFER."
   (interactive (list (current-buffer)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (origami-apply-new-tree buffer tree (origami-store-cached-tree
@@ -496,6 +518,7 @@ as to ensure seeing where POINT is."
                                           tree)))))
 
 (defun origami-close-all-nodes (buffer)
+  "Recursively close every fold node in BUFFER."
   (interactive (list (current-buffer)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (origami-apply-new-tree buffer tree (origami-store-cached-tree
@@ -506,13 +529,16 @@ as to ensure seeing where POINT is."
                                           tree)))))
 
 (defun origami-show-only-node (buffer point)
+  "Close all fold nodes in BUFFER except for those necessary to
+make POINT visible. Very useful for quickly collapsing everything
+in the buffer other than what you are looking at."
   (interactive (list (current-buffer) (point)))
   (origami-close-all-nodes buffer)
   (origami-show-node buffer point))
 
 (defun origami-previous-fold (buffer point)
-  "Move point to the beginning of the fold before point. If point
-is in a fold, move to the beginning of the fold that point is
+  "Move point to the beginning of the fold before POINT. If POINT
+is in a fold, move to the beginning of the fold that POINT is
 in."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
@@ -524,8 +550,8 @@ in."
       goto-char)))
 
 (defun origami-next-fold (buffer point)
-  "Move point to the end of the fold after point. If point is in
-a fold, move to the end of the fold that point is in."
+  "Move point to the end of the fold after POINT. If POINT is in
+a fold, move to the end of the fold that POINT is in."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-> tree
@@ -535,6 +561,10 @@ a fold, move to the end of the fold that point is in."
       goto-char)))
 
 (defun origami-undo (buffer)
+  "Undo the last folding operation applied to BUFFER. Undo
+history is linear. If you undo some fold operations and then
+perform a new fold operation you will lose the history of
+operations undone."
   (interactive (list (current-buffer)))
   (let ((current-tree (origami-get-cached-tree buffer)))
     (origami-update-history buffer (lambda (h) (origami-h-undo h)))
@@ -542,6 +572,9 @@ a fold, move to the end of the fold that point is in."
       (origami-apply-new-tree buffer current-tree old-tree))))
 
 (defun origami-redo (buffer)
+  "Redo the last folding operation applied to BUFFER. You can
+only redo undone operations while a new folding operation hasn't
+been performed to BUFFER."
   (interactive (list (current-buffer)))
   (let ((current-tree (origami-get-cached-tree buffer)))
     (origami-update-history buffer (lambda (h) (origami-h-redo h)))
@@ -549,6 +582,9 @@ a fold, move to the end of the fold that point is in."
       (origami-apply-new-tree buffer current-tree new-tree))))
 
 (defun origami-reset (buffer)
+  "Remove all folds from BUFFER and reset all origami state
+associated with this buffer. Useful during development or if you
+uncover any bugs."
   (interactive (list (current-buffer)))
   (origami-setup-local-vars buffer)
   (origami-remove-all-overlays buffer))
