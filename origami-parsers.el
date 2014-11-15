@@ -30,6 +30,7 @@
 ;;; Commentary:
 
 ;;; Code:
+(require 'cl)
 
 (defcustom origami-parser-alist
   '((java-mode             . origami-c-style-parser)
@@ -53,33 +54,35 @@
       (reverse acc))))
 
 (defun origami-build-pair-tree (create open close positions)
-  ;; this is so horrible, but fast
-  (let (acc beg (should-continue t))
-    (while (and should-continue positions)
-      (cond ((equal (caar positions) open)
-             (if beg                       ;go down a level
-                 (let* ((res (origami-build-pair-tree create open close positions))
-                        (new-pos (car res))
-                        (children (cdr res)))
-                   (setq positions (cdr new-pos))
-                   (setq acc (cons (funcall create beg (cdar new-pos) 0 children) acc))
-                   (setq beg nil))
-               ;; begin a new pair
-               (setq beg (cdar positions))
-               (setq positions (cdr positions))))
-            ((equal (caar positions) close)
-             (if beg
-                 (progn                 ;close with no children
-                   (setq acc (cons (funcall create beg (cdar positions) 0 nil) acc))
-                   (setq positions (cdr positions))
-                   (setq beg nil))
-               (setq should-continue nil)))))
-    (cons positions (reverse acc))))
+  (cl-labels ((build (positions)
+                     ;; this is so horrible, but fast
+                     (let (acc beg (should-continue t))
+                       (while (and should-continue positions)
+                         (cond ((equal (caar positions) open)
+                                (if beg                       ;go down a level
+                                    (let* ((res (build positions))
+                                           (new-pos (car res))
+                                           (children (cdr res)))
+                                      (setq positions (cdr new-pos))
+                                      (setq acc (cons (funcall create beg (cdar new-pos) 0 children) acc))
+                                      (setq beg nil))
+                                  ;; begin a new pair
+                                  (setq beg (cdar positions))
+                                  (setq positions (cdr positions))))
+                               ((equal (caar positions) close)
+                                (if beg
+                                    (progn                 ;close with no children
+                                      (setq acc (cons (funcall create beg (cdar positions) 0 nil) acc))
+                                      (setq positions (cdr positions))
+                                      (setq beg nil))
+                                  (setq should-continue nil)))))
+                       (cons positions (reverse acc)))))
+    (cdr (build positions))))
 
 (defun origami-c-style-parser (create)
   (lambda (content)
     (let ((positions (origami-get-positions content "[{}]")))
-      (cdr (origami-build-pair-tree create "{" "}" positions)))))
+      (origami-build-pair-tree create "{" "}" positions))))
 
 (defun origami-lisp-parser (create regex)
   (lambda (content)
