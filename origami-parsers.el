@@ -43,8 +43,6 @@
   :type 'hook
   :group 'origami)
 
-;;; TODO: generalize to take a function? then could use a regex or
-;;; begin-defun etc?
 (defun origami-get-positions (content regex)
   (with-temp-buffer
     (insert content)
@@ -54,13 +52,13 @@
         (setq acc (cons (cons (match-string 0) (point)) acc)))
       (reverse acc))))
 
-(defun origami-build-pair-tree (create positions)
+(defun origami-build-pair-tree (create open close positions)
   ;; this is so horrible, but fast
   (let (acc beg (should-continue t))
     (while (and should-continue positions)
-      (cond ((equal (caar positions) "{")
+      (cond ((equal (caar positions) open)
              (if beg                       ;go down a level
-                 (let* ((res (origami-build-pair-tree create positions))
+                 (let* ((res (origami-build-pair-tree create open close positions))
                         (new-pos (car res))
                         (children (cdr res)))
                    (setq positions (cdr new-pos))
@@ -69,7 +67,7 @@
                ;; begin a new pair
                (setq beg (cdar positions))
                (setq positions (cdr positions))))
-            ((equal (caar positions) "}")
+            ((equal (caar positions) close)
              (if beg
                  (progn                 ;close with no children
                    (setq acc (cons (funcall create beg (cdar positions) 0 nil) acc))
@@ -81,7 +79,7 @@
 (defun origami-c-style-parser (create)
   (lambda (content)
     (let ((positions (origami-get-positions content "[{}]")))
-      (cdr (origami-build-pair-tree create positions)))))
+      (cdr (origami-build-pair-tree create "{" "}" positions)))))
 
 (defun origami-lisp-parser (create regex)
   (lambda (content)
