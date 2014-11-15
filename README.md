@@ -159,7 +159,7 @@ function. Best to use an example:
 
      (defun my-amazing-parser (create)
        (lambda (content)
-         (list (funcall create beginning-of-the-fold-node-point-position
-                               end-of-the-fold-node-point-position
+         (list (funcall create beginning-of-the-fold-node-point-position ; inclusive
+                               end-of-the-fold-node-point-position ; exclusive
                                offset  ; this allows you to show some of the start of the folded text
                                child-nodes))))

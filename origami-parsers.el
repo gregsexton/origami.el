@@ -50,7 +50,9 @@
     (beginning-of-buffer)
     (let (acc)
       (while (re-search-forward regex nil t)
-        (setq acc (cons (cons (match-string 0) (point)) acc)))
+        (let ((match (match-string 0)))
+          (setq acc (cons (cons match (- (point) (length match)))
+                          acc))))
       (reverse acc))))
 
 (defun origami-build-pair-tree (create open close positions)
@@ -64,7 +66,8 @@
                                            (new-pos (car res))
                                            (children (cdr res)))
                                       (setq positions (cdr new-pos))
-                                      (setq acc (cons (funcall create beg (cdar new-pos) 0 children) acc))
+                                      (setq acc (cons (funcall create beg (cdar new-pos) (length open) children)
+                                                      acc))
                                       (setq beg nil))
                                   ;; begin a new pair
                                   (setq beg (cdar positions))
@@ -72,7 +75,8 @@
                                ((equal (caar positions) close)
                                 (if beg
                                     (progn                 ;close with no children
-                                      (setq acc (cons (funcall create beg (cdar positions) 0 nil) acc))
+                                      (setq acc (cons (funcall create beg (cdar positions) (length close) nil)
+                                                      acc))
                                       (setq positions (cdr positions))
                                       (setq beg nil))
                                   (setq should-continue nil)))))
@@ -96,8 +100,8 @@
           (search-forward-regexp regex nil t)
           (setq offset (- (point) beg))
           (end-of-defun)
-          (backward-char)
-          (setq end (point))
+          (backward-char)               ;move point to one after the last paren
+          (setq end (1- (point)))       ;don't include the last paren in the fold
           (when (> offset 0)
             (setq acc (cons (funcall create beg end offset nil) acc)))
           (beginning-of-defun -1))

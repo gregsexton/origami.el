@@ -41,10 +41,7 @@
 
 (defun origami-create-overlay (beg end offset buffer)
   (when (> (- end beg) 0)
-    ;; TODO: need to show the end so offset by 1. Maybe add an
-    ;; end-offset to fold node? The opposite of this is used in
-    ;; origami-fold-end.
-    (make-overlay (+ beg offset) (- end 1) buffer)))
+    (make-overlay (+ beg offset) end buffer)))
 
 (defun origami-hide-node-overlay (node)
   (-when-let (ov (origami-fold-data node))
@@ -120,7 +117,7 @@
   (when node
     (if (origami-fold-is-root-node? node)
         (aref node 1)
-      (+ (overlay-end (origami-fold-data node)) 1))))
+      (overlay-end (origami-fold-data node)))))
 
 (defun origami-fold-offset (node) (when node (aref node 2)))
 
