@@ -598,6 +598,7 @@ uncover any bugs."
   :type 'hook
   :group 'origami)
 
+;;;###autoload
 (define-minor-mode origami-mode
   "Minor mode to selectively hide/show text in the current buffer.
 With a prefix argument ARG, enable the mode if ARG is positive,
