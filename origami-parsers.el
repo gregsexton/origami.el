@@ -47,7 +47,7 @@
 (defun origami-get-positions (content regex)
   (with-temp-buffer
     (insert content)
-    (beginning-of-buffer)
+    (goto-char (point-min))
     (let (acc)
       (while (re-search-forward regex nil t)
         (let ((match (match-string 0)))
@@ -92,7 +92,7 @@
   (lambda (content)
     (with-temp-buffer
       (insert content)
-      (beginning-of-buffer)
+      (goto-char (point-min))
       (beginning-of-defun -1)
       (let (beg end offset acc)
         (while (< (point) (point-max))
