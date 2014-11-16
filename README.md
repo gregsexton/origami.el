@@ -102,6 +102,11 @@ The following commands are supplied to manipulate folds in the buffer:
   </tr>
 
   <tr>
+    <td>origami-toggle-all-nodes</td>
+    <td>Toggle open/closed every fold node in the buffer.</td>
+  </tr>
+
+  <tr>
     <td>origami-show-only-node</td>
     <td>Close everything but the folds necessary to see the point. Very useful for concentrating on an area of code.</td>
   </tr>

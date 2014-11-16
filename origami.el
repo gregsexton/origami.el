@@ -525,6 +525,16 @@ familiar. It's easiest to grasp this just by giving it a go."
                                             (origami-fold-open-set node nil))
                                           tree)))))
 
+(defun origami-toggle-all-nodes (buffer)
+  "Toggle all fold nodes in the buffer recursively open or
+recursively closed."
+  (interactive (list (current-buffer)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    ;; use the first child as root is always open
+    (if (-> tree origami-fold-children car origami-fold-open?)
+        (origami-close-all-nodes buffer)
+      (origami-open-all-nodes buffer))))
+
 (defun origami-show-only-node (buffer point)
   "Close all fold nodes in BUFFER except for those necessary to
 make POINT visible. Very useful for quickly collapsing everything
