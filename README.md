@@ -163,3 +163,34 @@ function. Best to use an example:
                                end-of-the-fold-node-point-position ; exclusive
                                offset  ; this allows you to show some of the start of the folded text
                                child-nodes))))
+
+# How is this different from [yafolding](https://github.com/zenozeng/yafolding.el)?
+
+I wasn't aware of yafolding before writing this. It looks like origami
+provides a richer set of functions for manipulating folds. It is also
+smarter about folding for the supported modes - yafolding uses
+indentation as a folding heuristic.
+
+# How is this different from [hideshow](http://www.emacswiki.org/HideShow)?
+
+Again, origami provides a much richer set of functions for
+manipulating folds. I looked at extending hideshow but gave up when I
+realised it kept all of its state in the buffer overlays. This makes
+it quite difficult to write some of the more complex fold
+manipulations.
+
+Origami maintains a data structure representing the folds and provides
+a rich library of functions for manipulating it. This makes adding new
+folding operations easy.
+
+# How is this different from [folding.el](http://www.emacswiki.org/emacs/folding.el)?
+
+Folding.el uses markers in the buffer to annotate folds. It should be
+very easy to add support for this to origami if anyone is looking for
+this feature?
+
+# How is this different from folding implemented by a specific mode?
+
+It's general purpose and concentrates only on providing a decent
+folding solution. You need only write a parser for origami to get all
+of its folding features for free.
