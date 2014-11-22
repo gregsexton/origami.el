@@ -41,20 +41,34 @@
 
 (defun origami-create-overlay (beg end offset buffer)
   (when (> (- end beg) 0)
-    (make-overlay (+ beg offset) end buffer)))
+    (let ((ov (make-overlay (+ beg offset) end buffer)))
+      (overlay-put ov 'isearch-open-invisible 'origami-isearch-show)
+      (overlay-put ov 'isearch-open-invisible-temporary
+                   (lambda (ov hide-p) (if hide-p (origami-hide-overlay ov)
+                                         (origami-show-overlay ov))))
+      ov)))
+
+(defun origami-hide-overlay (ov)
+  ;; TODO: make all of this customizable
+  (overlay-put ov 'invisible 'origami)
+  (overlay-put ov 'display "...")
+  (overlay-put ov 'face 'font-lock-comment-delimiter-face))
+
+(defun origami-show-overlay (ov)
+  (overlay-put ov 'invisible nil)
+  (overlay-put ov 'display nil)
+  (overlay-put ov 'face nil))
 
 (defun origami-hide-node-overlay (node)
   (-when-let (ov (origami-fold-data node))
-    ;; TODO: make all of this customizable
-    (overlay-put ov 'invisible 'origami)
-    (overlay-put ov 'display "...")
-    (overlay-put ov 'face 'font-lock-comment-delimiter-face)))
+    (origami-hide-overlay ov)))
 
 (defun origami-show-node-overlay (node)
   (-when-let (ov (origami-fold-data node))
-    (overlay-put ov 'invisible nil)
-    (overlay-put ov 'display nil)
-    (overlay-put ov 'face nil)))
+    (origami-show-overlay ov)))
+
+(defun origami-isearch-show (ov)
+  (origami-show-node (current-buffer) (point)))
 
 (defun origami-hide-overlay-from-fold-tree-fn (node)
   (origami-fold-postorder-each node 'origami-hide-node-overlay))
