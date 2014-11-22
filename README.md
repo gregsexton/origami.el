@@ -145,6 +145,7 @@ Probably not. Currently out of the box support is provided for:
 * C++
 * Clojure
 * Java
+* Javascript
 * Perl
 * elisp
 
