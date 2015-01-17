@@ -20,6 +20,8 @@ convenient.
 
 # How do I install it?
 
+The easiest way is to just use MELPA. For manual installation:
+
 Firstly, origami requires the following dependencies:
 
 * https://github.com/magnars/dash.el
