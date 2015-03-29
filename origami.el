@@ -622,6 +622,9 @@ uncover any bugs."
   :type 'hook
   :group 'origami)
 
+(defun origami-find-occurrence-show-node ()
+  (call-interactively 'origami-show-node))
+
 ;;;###autoload
 (define-minor-mode origami-mode
   "Minor mode to selectively hide/show text in the current buffer.
@@ -638,6 +641,16 @@ Key bindings:
   :lighter nil
   :keymap origami-mode-map
   :init-value nil
+  (if origami-mode
+      (progn
+        (add-hook 'occur-mode-find-occurrence-hook
+                  'origami-find-occurrence-show-node nil t)
+        (setq next-error-move-function (lambda (ignored pos)
+                                         (goto-char pos)
+                                         (call-interactively 'origami-show-node))))
+    (remove-hook 'occur-mode-find-occurrence-hook
+                 'origami-find-occurrence-show-node t)
+    (setq next-error-move-function nil))
   (origami-reset (current-buffer)))
 
 (provide 'origami)
