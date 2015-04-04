@@ -3,7 +3,7 @@
 ;; Author: Greg Sexton <gregsexton@gmail.com>
 ;; Version: 1.0
 ;; Keywords: folding
-;; URL: https://github.com/gregsexton/
+;; URL: https://github.com/gregsexton/origami.el
 ;; Package-Requires: ((s "1.9.0") (dash "2.5.0") (emacs "24"))
 
 ;; The MIT License (MIT)
