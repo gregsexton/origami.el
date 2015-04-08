@@ -170,6 +170,10 @@
 (defun origami-fold-state-equal (a b)
   (equal (origami-fold-open? a) (origami-fold-open? b)))
 
+(defun origami-fold-add-child (node new)
+  (origami-fold-children-set node
+                             (cons new (origami-fold-children node))))
+
 (defun origami-fold-replace-child (node old new)
   (origami-fold-children-set node
                              (cons new (remove old (origami-fold-children node)))))
@@ -236,13 +240,16 @@ children cannot be manipulated."
           (cons tree (origami-fold-find-deepest child pred))
         (list tree)))))
 
+(defun origami-fold-find-path-containing-range (tree beg end)
+  (origami-fold-find-deepest tree
+                             (lambda (node)
+                               (and (>= beg (origami-fold-beg node))
+                                    (<= end (origami-fold-end node))))))
+
 (defun origami-fold-find-path-with-range (tree beg end)
   "Return the path to the most specific (deepest) node that has
 exactly the range BEG-END, or null."
-  (-when-let (path (origami-fold-find-deepest tree
-                                              (lambda (node)
-                                                (and (>= beg (origami-fold-beg node))
-                                                     (<= end (origami-fold-end node))))))
+  (-when-let (path (origami-fold-find-path-containing-range tree beg end))
     (let ((last (-last-item path)))
       (when (and (= beg (origami-fold-beg last))
                  (= end (origami-fold-end last)))
@@ -278,6 +285,16 @@ with the current state and the current node at each iteration."
 (defun origami-fold-node-recursively-open? (node)
   (origami-fold-postorder-reduce node (lambda (acc node)
                                         (and acc (origami-fold-open? node))) t))
+
+(defun origami-fold-shallow-merge (tree1 tree2)
+  "Shallow merge the children of TREE2 in to TREE1."
+  (-reduce-from (lambda (tree node)
+                  (origami-fold-assoc (origami-fold-find-path-containing-range tree
+                                                                               (origami-fold-beg node)
+                                                                               (origami-fold-end node))
+                                      (lambda (leaf)
+                                        (origami-fold-add-child leaf node))))
+                tree1 (origami-fold-children tree2)))
 
 ;;; linear history structure
 
@@ -346,10 +363,10 @@ was last built."
 (defun origami-build-tree (buffer parser)
   (when parser
     (with-current-buffer buffer
-      (let ((contents (buffer-substring-no-properties (point-min) (point-max))))
+      (let ((contents (buffer-string)))
         (-> parser
-          (funcall contents)
-          origami-fold-root-node)))))
+            (funcall contents)
+            origami-fold-root-node)))))
 
 (defun origami-get-parser (buffer)
   (let* ((cached-tree (origami-get-cached-tree buffer))

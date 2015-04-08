@@ -31,9 +31,10 @@
 
 ;;; Code:
 (require 'cl)
+(require 'dash)
 
 (defcustom origami-parser-alist
-  '((java-mode             . origami-c-style-parser)
+  '((java-mode             . origami-java-parser)
     (c-mode                . origami-c-style-parser)
     (c++-mode              . origami-c-style-parser)
     (perl-mode             . origami-c-style-parser)
@@ -49,6 +50,9 @@
   :group 'origami)
 
 (defun origami-get-positions (content regex)
+  "Returns a list of positions where REGEX matches in CONTENT. A
+position is a cons cell of the character and the numerical
+position in the CONTENT."
   (with-temp-buffer
     (insert content)
     (goto-char (point-min))
@@ -87,10 +91,35 @@
                        (cons positions (reverse acc)))))
     (cdr (build positions))))
 
+;;; TODO: tag these nodes? have ability to manipulate nodes that are
+;;; tagged? in a scoped fashion?
+(defun origami-javadoc-parser (create)
+  (lambda (content)
+    (let ((positions (->> (origami-get-positions content "/\\*\\*\\|\\*/")
+                          (-filter (lambda (position)
+                                     (eq (get-text-property 0 'face (car position))
+                                         'font-lock-doc-face))))))
+      (origami-build-pair-tree create "/**" "*/" positions))))
+
 (defun origami-c-style-parser (create)
   (lambda (content)
-    (let ((positions (origami-get-positions content "[{}]")))
+    (let ((positions (->> (origami-get-positions content "[{}]")
+                          (remove-if (lambda (position)
+                                       (let ((face (get-text-property 0 'face (car position))))
+                                         (-any? (lambda (f)
+                                                  (memq f '(font-lock-doc-face
+                                                            font-lock-comment-face
+                                                            font-lock-string-face)))
+                                                (if (listp face) face (list face)))))))))
       (origami-build-pair-tree create "{" "}" positions))))
+
+(defun origami-java-parser (create)
+  (let ((c-style (origami-c-style-parser create))
+        (javadoc (origami-javadoc-parser create)))
+    (lambda (content)
+      (origami-fold-children
+       (origami-fold-shallow-merge (origami-fold-root-node (funcall c-style content))
+                                   (origami-fold-root-node (funcall javadoc content)))))))
 
 (defun origami-lisp-parser (create regex)
   (lambda (content)
