@@ -42,6 +42,8 @@
     (js-mode               . origami-c-style-parser)
     (js2-mode              . origami-c-style-parser)
     (js3-mode              . origami-c-style-parser)
+    (go-mode               . origami-c-style-parser)
+    (php-mode              . origami-c-style-parser)
     (emacs-lisp-mode       . origami-elisp-parser)
     (lisp-interaction-mode . origami-elisp-parser)
     (clojure-mode          . origami-clj-parser))

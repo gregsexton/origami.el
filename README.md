@@ -150,6 +150,8 @@ Probably not. Currently out of the box support is provided for:
 * Javascript
 * Perl
 * elisp
+* Go
+* PHP
 
 It should be trivial to add support for any language that uses braces
 to delimit blocks. Just add to `origami-parser-alist` something like:
