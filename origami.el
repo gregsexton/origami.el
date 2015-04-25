@@ -670,6 +670,10 @@ Key bindings:
     (setq next-error-move-function nil))
   (origami-reset (current-buffer)))
 
+;;;###autoload
+(define-global-minor-mode global-origami-mode origami-mode
+  (lambda () (origami-mode 1)))
+
 (provide 'origami)
 
 ;;; origami.el ends here
