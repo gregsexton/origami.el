@@ -52,7 +52,8 @@ Origami has been tested on Emacs 24.3, 24.4 and 24.5.
 
 Origami works by parsing the buffer to determine a fold structure.
 
-The following commands are supplied to manipulate folds in the buffer:
+The following commands are supplied to manipulate folds in the
+buffer - those in bold are particularly useful:
 
 <table>
   <tr>
@@ -91,7 +92,7 @@ The following commands are supplied to manipulate folds in the buffer:
   </tr>
 
   <tr>
-    <td>origami-recursively-toggle-node</td>
+    <td><strong>origami-recursively-toggle-node</strong></td>
     <td>Acts like org-mode header collapsing. Cycle a fold between open, recursively open, closed.</td>
   </tr>
 
@@ -111,7 +112,7 @@ The following commands are supplied to manipulate folds in the buffer:
   </tr>
 
   <tr>
-    <td>origami-show-only-node</td>
+    <td><strong>origami-show-only-node</strong></td>
     <td>Close everything but the folds necessary to see the point. Very useful for concentrating on an area of code.</td>
   </tr>
 
@@ -126,12 +127,12 @@ The following commands are supplied to manipulate folds in the buffer:
   </tr>
 
   <tr>
-    <td>origami-undo</td>
+    <td><strong>origami-undo</strong></td>
     <td>Undo the last folding operation.</td>
   </tr>
 
   <tr>
-    <td>origami-redo</td>
+    <td><strong>origami-redo</strong></td>
     <td>Redo the last undone folding operation.</td>
   </tr>
 
@@ -156,9 +157,8 @@ To some degree, yes. Currently out of the box support is provided for:
 * Python
 * elisp
 
-Anything not in this list will be <strong>folded using
-indentation</strong>. This works surprisingly well for most
-major-modes and is great for folding text.
+Anything not in this list will be folded using indentation. This works
+surprisingly well for most major-modes and is great for folding text.
 
 It should be trivial to add support for any language that uses braces
 to delimit blocks. Just add to `origami-parser-alist` something like:
