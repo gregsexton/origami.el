@@ -42,13 +42,15 @@ In a buffer run `M-x origami-mode`, and start experimenting with any
 of the supplied origami interactive functions. I recommend binding
 these to keys of your choice in the `origami-mode-map`.
 
-This has been tested on Emacs 24.3 and 24.4.
+There is also `global-origami-mode` if you just want to enable origami
+everywhere. For any major-mode that doesn't have explicit support,
+origami will use the indentation of the buffer to determine folds.
+
+Origami has been tested on Emacs 24.3, 24.4 and 24.5.
 
 # What can it do?
 
 Origami works by parsing the buffer to determine a fold structure.
-(Currently there is only support for determining the fold structure
-using a parser.)
 
 The following commands are supplied to manipulate folds in the buffer:
 
@@ -141,31 +143,39 @@ The following commands are supplied to manipulate folds in the buffer:
 
 # Does it support my favourite major-mode?
 
-Probably not. Currently out of the box support is provided for:
+To some degree, yes. Currently out of the box support is provided for:
 
 * C
 * C++
 * Clojure
+* Go
 * Java
 * Javascript
-* Perl
-* elisp
-* Go
 * PHP
+* Perl
+* Python
+* elisp
+
+Anything not in this list will be <strong>folded using
+indentation</strong>. This works surprisingly well for most
+major-modes and is great for folding text.
 
 It should be trivial to add support for any language that uses braces
 to delimit blocks. Just add to `origami-parser-alist` something like:
 `(mode-name . origami-c-style-parser)`. Adding support for another
-lisp dialect should be almost as simple.
+lisp dialect should be almost as simple. With a little bit of effort
+it shouldn't be too hard to create a parser for anything with start
+and end delimiters (similar to braces). See the
+`origami-c-style-parser` function for how to define this.
 
-I'm happy to work on parsers for other languages if enough interest is
-expressed.
+I'm happy to work on parsers for other languages if interest is
+expressed. Cut an issue and I'll see what I can do.
 
-It should be fairly easy to write a parser. An origami parser is a
-function that takes a 'create function' and returns a function taking
-the string to be parsed. The returned function should return a list of
+You can write your own parser too. An origami parser is a function
+that takes a 'create function' and returns a function taking the
+string to be parsed. The returned function should return a list of
 fold nodes. Fold nodes are created using the passed-in create
-function. Best to use an example:
+function. Here is an example that creates a single fold node:
 
      (defun my-amazing-parser (create)
        (lambda (content)
@@ -173,6 +183,10 @@ function. Best to use an example:
                                end-of-the-fold-node-point-position ; exclusive
                                offset  ; this allows you to show some of the start of the folded text
                                child-nodes))))
+
+While I work on writing better documentation for parsing, I suggest
+starting by looking at the current parsers in origami-parsers.el to
+see how they work.
 
 # How is this different from [yafolding](https://github.com/zenozeng/yafolding.el)?
 
