@@ -377,11 +377,12 @@ was last built."
                                         children
                                         (or (-> (origami-fold-find-path-with-range
                                                  (origami-get-cached-tree buffer) beg end)
-                                              -last-item
-                                              origami-fold-data)
+                                                -last-item
+                                                origami-fold-data)
                                             (origami-create-overlay beg end offset buffer)))))))
-    (-when-let (parser-gen (cdr (assoc (buffer-local-value 'major-mode buffer)
-                                       origami-parser-alist)))
+    (-when-let (parser-gen (or (cdr (assoc (buffer-local-value 'major-mode buffer)
+                                           origami-parser-alist))
+                               'origami-indent-parser))
       (funcall parser-gen create))))
 
 (defun origami-get-fold-tree (buffer)
