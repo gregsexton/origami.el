@@ -44,6 +44,7 @@
     (js3-mode              . origami-c-style-parser)
     (go-mode               . origami-c-style-parser)
     (php-mode              . origami-c-style-parser)
+    (python-mode           . origami-indent-parser)
     (emacs-lisp-mode       . origami-elisp-parser)
     (lisp-interaction-mode . origami-elisp-parser)
     (clojure-mode          . origami-clj-parser))
