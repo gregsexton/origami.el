@@ -66,11 +66,11 @@ position in the CONTENT."
                           acc))))
       (reverse acc))))
 
-;;; TODO: support tabs
 (defun origami-indent-parser (create)
   (cl-labels ((lines (string) (origami-get-positions string ".*?\r?\n"))
               (annotate-levels (lines)
                                (-map (lambda (line)
+                                       ;; TODO: support tabs
                                        (let ((indent (length (car (s-match "^ *" (car line)))))
                                              (beg (cdr line))
                                              (end (+ (cdr line) (length (car line)) -1)))
