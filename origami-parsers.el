@@ -65,6 +65,70 @@ position in the CONTENT."
                           acc))))
       (reverse acc))))
 
+;;; TODO: support tabs
+(defun origami-indent-parser (create)
+  (cl-labels ((lines (string)
+                     (-> string
+                         (origami-get-positions ".*?\r?\n")
+                         (->> (-filter (lambda (line)
+                                         (not (s-blank? (s-trim (car line)))))))))
+              (annotate-levels (lines)
+                               (-map (lambda (line)
+                                       (let ((beg (cdr line))
+                                             (end (+ (cdr line) (length (car line)) -1)))
+                                         (vector (length (car (s-match "^ *" (car line))))
+                                                 beg
+                                                 end
+                                                 (- end beg))))
+                                     lines))
+              (indent (line) (aref line 0))
+              (beg (line) (aref line 1))
+              (end (line) (aref line 2))
+              (offset (line) (aref line 3))
+              (collapse-same-level (levels)
+                                   (reverse (-reduce-from (lambda (acc level)
+                                                            (if (= (indent level) (indent (car acc)))
+                                                                (cons (vector (indent (car acc))
+                                                                              (beg (car acc))
+                                                                              (end level)
+                                                                              (offset (car acc)))
+                                                                      (cdr acc))
+                                                              (cons level acc)))
+                                                          (list (car levels))
+                                                          (cdr levels))))
+              (create-tree (levels)
+                           (if (null levels)
+                               levels
+                             (let ((curr-indent (indent (car levels))))
+                               (->> levels
+                                    (-partition-by (lambda (l) (= (indent l) curr-indent)))
+                                    (-partition-all 2)
+                                    (-map (lambda (x) (cons (caar x) (create-tree (cadr x)))))))))
+              (build-nodes (tree)
+                           (if (null tree) (cons 0 nil)
+                             ;; complexity here is due to having to find the end of the children so that the
+                             ;; parent encompasses them
+                             (-reduce-r-from (lambda (nodes acc)
+                                               (destructuring-bind (children-end . children) (build-nodes (cdr nodes))
+                                                 (let ((this-end (max children-end (end (car nodes)))))
+                                                   (cons (max this-end (car acc))
+                                                         (cons (funcall create
+                                                                        (beg (car nodes))
+                                                                        this-end
+                                                                        (offset (car nodes))
+                                                                        children)
+                                                               (cdr acc))))))
+                                             '(0 . nil)
+                                             tree))))
+    (lambda (content)
+      (-> content
+          lines
+          annotate-levels
+          collapse-same-level
+          create-tree
+          build-nodes
+          cdr))))
+
 (defun origami-build-pair-tree (create open close positions)
   (cl-labels ((build (positions)
                      ;; this is so horrible, but fast
