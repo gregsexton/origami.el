@@ -67,35 +67,35 @@ position in the CONTENT."
 
 ;;; TODO: support tabs
 (defun origami-indent-parser (create)
-  (cl-labels ((lines (string)
-                     (-> string
-                         (origami-get-positions ".*?\r?\n")
-                         (->> (-filter (lambda (line)
-                                         (not (s-blank? (s-trim (car line)))))))))
+  (cl-labels ((lines (string) (origami-get-positions string ".*?\r?\n"))
               (annotate-levels (lines)
                                (-map (lambda (line)
-                                       (let ((beg (cdr line))
+                                       (let ((indent (length (car (s-match "^ *" (car line)))))
+                                             (beg (cdr line))
                                              (end (+ (cdr line) (length (car line)) -1)))
-                                         (vector (length (car (s-match "^ *" (car line))))
-                                                 beg
-                                                 end
-                                                 (- end beg))))
+                                         (if (s-blank? (s-trim (car line)))
+                                             'newline ;sentinel representing line break
+                                           (vector indent beg end (- end beg)))))
                                      lines))
-              (indent (line) (aref line 0))
+              (indent (line) (if (eq line 'newline) -1 (aref line 0)))
               (beg (line) (aref line 1))
               (end (line) (aref line 2))
               (offset (line) (aref line 3))
-              (collapse-same-level (levels)
-                                   (reverse (-reduce-from (lambda (acc level)
-                                                            (if (= (indent level) (indent (car acc)))
-                                                                (cons (vector (indent (car acc))
-                                                                              (beg (car acc))
-                                                                              (end level)
-                                                                              (offset (car acc)))
-                                                                      (cdr acc))
-                                                              (cons level acc)))
-                                                          (list (car levels))
-                                                          (cdr levels))))
+              (collapse-same-level (lines)
+                                   (->>
+                                    (cdr lines)
+                                    (-reduce-from (lambda (acc line)
+                                                    (cond ((and (eq line 'newline) (eq (car acc) 'newline)) acc)
+                                                          ((= (indent line) (indent (car acc)))
+                                                           (cons (vector (indent (car acc))
+                                                                         (beg (car acc))
+                                                                         (end line)
+                                                                         (offset (car acc)))
+                                                                 (cdr acc)))
+                                                          (t (cons line acc))))
+                                                  (list (car lines)))
+                                    (remove 'newline)
+                                    reverse))
               (create-tree (levels)
                            (if (null levels)
                                levels
@@ -103,7 +103,11 @@ position in the CONTENT."
                                (->> levels
                                     (-partition-by (lambda (l) (= (indent l) curr-indent)))
                                     (-partition-all 2)
-                                    (-map (lambda (x) (cons (caar x) (create-tree (cadr x)))))))))
+                                    (-mapcat (lambda (x)
+                                        ;takes care of multiple identical levels, introduced when there are newlines
+                                               (-concat
+                                                (-map 'list (butlast (car x)))
+                                                (list (cons (-last-item (car x)) (create-tree (cadr x)))))))))))
               (build-nodes (tree)
                            (if (null tree) (cons 0 nil)
                              ;; complexity here is due to having to find the end of the children so that the
