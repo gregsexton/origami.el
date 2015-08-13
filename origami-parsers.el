@@ -47,7 +47,8 @@
     (python-mode           . origami-indent-parser)
     (emacs-lisp-mode       . origami-elisp-parser)
     (lisp-interaction-mode . origami-elisp-parser)
-    (clojure-mode          . origami-clj-parser))
+    (clojure-mode          . origami-clj-parser)
+    (triple-braces         . origami-triple-braces-parser))
   "alist mapping major-mode to parser function."
   :type 'hook
   :group 'origami)
@@ -216,6 +217,11 @@ position in the CONTENT."
 
 (defun origami-clj-parser (create)
   (origami-lisp-parser create "(def\\(\\w\\|-\\)*\\s-*\\(\\s_\\|\\w\\|[?!]\\)*\\([ \\t]*\\[.*?\\]\\)?"))
+
+(defun origami-triple-braces-parser (create)
+  (lambda (content)
+    (let ((positions (origami-get-positions content "{{{\\|}}}")))
+      (origami-build-pair-tree create "{{{" "}}}" positions))))
 
 (provide 'origami-parsers)
 

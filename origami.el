@@ -380,7 +380,9 @@ was last built."
                                                 -last-item
                                                 origami-fold-data)
                                             (origami-create-overlay beg end offset buffer)))))))
-    (-when-let (parser-gen (or (cdr (assoc (buffer-local-value 'major-mode buffer)
+    (-when-let (parser-gen (or (cdr (assoc (if (local-variable-p 'origami-fold-style)
+                                               (buffer-local-value 'origami-fold-style buffer)
+                                             (buffer-local-value 'major-mode buffer))
                                            origami-parser-alist))
                                'origami-indent-parser))
       (funcall parser-gen create))))
