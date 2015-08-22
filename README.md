@@ -163,10 +163,10 @@ surprisingly well for most major-modes and is great for folding text.
 It should be trivial to add support for any language that uses braces
 to delimit blocks. Just add to `origami-parser-alist` something like:
 `(mode-name . origami-c-style-parser)`. Adding support for another
-lisp dialect should be almost as simple. With a little bit of effort
-it shouldn't be too hard to create a parser for anything with start
-and end delimiters (similar to braces). See the
-`origami-c-style-parser` function for how to define this.
+lisp dialect should be almost as simple. You can also easily define a
+parser for anything with start and end delimiters (similar to braces).
+Use the `origami-markers-parser` function for this. There's an example
+defined for triple-braces in `origami-parser-alist`.
 
 I'm happy to work on parsers for other languages if interest is
 expressed. Cut an issue and I'll see what I can do.
@@ -187,6 +187,15 @@ function. Here is an example that creates a single fold node:
 While I work on writing better documentation for parsing, I suggest
 starting by looking at the current parsers in origami-parsers.el to
 see how they work.
+
+# Can I override the folding parser for an individual file?
+
+You most certainly can. Just add a buffer-local variable that
+references a key in `origami-parser-alist`. Something like:
+
+    ;; -*- origami-fold-style: triple-braces -*-
+
+This will add fold-marker support to that file.
 
 # How is this different from [yafolding](https://github.com/zenozeng/yafolding.el)?
 
@@ -209,12 +218,11 @@ folding operations easy.
 
 # How is this different from [folding.el](http://www.emacswiki.org/emacs/folding.el)?
 
-Folding.el uses markers in the buffer to annotate folds. It should be
-very easy to add support for this to origami if anyone is looking for
-this feature?
+Folding.el uses markers in the buffer to annotate folds. Origami also
+supports this and more.
 
 # How is this different from folding implemented by a specific mode?
 
-It's general purpose and concentrates only on providing a decent
+It's general purpose and concentrates only on providing a great
 folding solution. You need only write a parser for origami to get all
-of its folding features for free.
+of its fold-manipulating features for free.

@@ -33,25 +33,6 @@
 (require 'cl)
 (require 'dash)
 
-(defcustom origami-parser-alist
-  '((java-mode             . origami-java-parser)
-    (c-mode                . origami-c-style-parser)
-    (c++-mode              . origami-c-style-parser)
-    (perl-mode             . origami-c-style-parser)
-    (cperl-mode            . origami-c-style-parser)
-    (js-mode               . origami-c-style-parser)
-    (js2-mode              . origami-c-style-parser)
-    (js3-mode              . origami-c-style-parser)
-    (go-mode               . origami-c-style-parser)
-    (php-mode              . origami-c-style-parser)
-    (python-mode           . origami-indent-parser)
-    (emacs-lisp-mode       . origami-elisp-parser)
-    (lisp-interaction-mode . origami-elisp-parser)
-    (clojure-mode          . origami-clj-parser))
-  "alist mapping major-mode to parser function."
-  :type 'hook
-  :group 'origami)
-
 (defun origami-get-positions (content regex)
   "Returns a list of positions where REGEX matches in CONTENT. A
 position is a cons cell of the character and the numerical
@@ -216,6 +197,34 @@ position in the CONTENT."
 
 (defun origami-clj-parser (create)
   (origami-lisp-parser create "(def\\(\\w\\|-\\)*\\s-*\\(\\s_\\|\\w\\|[?!]\\)*\\([ \\t]*\\[.*?\\]\\)?"))
+
+(defun origami-markers-parser (start-marker end-marker)
+  "Create a parser for simple start and end markers."
+  (let ((regex (rx-to-string `(or ,start-marker ,end-marker))))
+    (lambda (create)
+      (lambda (content)
+        (let ((positions (origami-get-positions content regex)))
+          (origami-build-pair-tree create start-marker end-marker positions))))))
+
+(defcustom origami-parser-alist
+  `((java-mode             . origami-java-parser)
+    (c-mode                . origami-c-style-parser)
+    (c++-mode              . origami-c-style-parser)
+    (perl-mode             . origami-c-style-parser)
+    (cperl-mode            . origami-c-style-parser)
+    (js-mode               . origami-c-style-parser)
+    (js2-mode              . origami-c-style-parser)
+    (js3-mode              . origami-c-style-parser)
+    (go-mode               . origami-c-style-parser)
+    (php-mode              . origami-c-style-parser)
+    (python-mode           . origami-indent-parser)
+    (emacs-lisp-mode       . origami-elisp-parser)
+    (lisp-interaction-mode . origami-elisp-parser)
+    (clojure-mode          . origami-clj-parser)
+    (triple-braces         . ,(origami-markers-parser "{{{" "}}}")))
+  "alist mapping major-mode to parser function."
+  :type 'hook
+  :group 'origami)
 
 (provide 'origami-parsers)
 
