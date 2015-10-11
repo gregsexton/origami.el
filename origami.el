@@ -39,26 +39,32 @@
 
 ;;; fold display mode and faces
 
-(defcustom origami-fold-display-mode 'dots
-  "Display mode for folded areas.
-By default, a traditional \"...\" format is used. A highlighted
-header is also available."
-  :tag "Display mode for folds"
-  :type '(choice (const :tag "Three dots" dots)
-                 (const :tag "Highlighted header" header))
+(defcustom origami-fold-replacement "..."
+  "Show this string instead of the folded text."
+  :type 'string
   :group 'origami)
 
-(defface origami-fold-header
+(defcustom origami-show-fold-header t
+  "Highlight the line the fold start on."
+  :type 'boolean
+  :group 'origami)
+
+(defface origami-fold-header-face
   '((t (:box (:line-width 1 :color "#050")
              :background "#001500")))
   "Face used to display fold headers.")
 
-(defface origami-fold-fringe
-  '((t (:inherit highlight)))
+(defface origami-fold-fringe-face
+  '((t ()))
   "Face used to display fringe contents.")
 
-(defgroup origami '((origami-fold-header custom-face)
-                     (origami-fold-fringe custom-face))
+(defface origami-fold-replacement-face
+  '((t :foreground "#555"))
+  "Face used to display the fold replacement text.")
+
+(defgroup origami '((origami-fold-header-face custom-face)
+                     (origami-fold-fringe-face custom-face)
+                     (origami-fold-replacement-face custom-face))
   "Origami: A text folding minor mode for Emacs, by Greg Sexton.")
 
 ;;; overlay manipulation
@@ -98,12 +104,10 @@ header is also available."
 (defun origami-hide-overlay (ov)
   ;; TODO: make more of this customizable
   (overlay-put ov 'invisible 'origami)
-  (case origami-fold-display-mode
-    ('dots
-     (overlay-put ov 'display "...")
-     (overlay-put ov 'face 'font-lock-comment-delimiter-face))
-    ('header
-     (origami-activate-header (overlay-get ov 'header-ov)))))
+  (overlay-put ov 'display origami-fold-replacement)
+  (overlay-put ov 'face 'origami-fold-replacement-face)
+  (if origami-show-fold-header
+     (origami-activate-header (overlay-get ov 'header-ov))))
 
 (defun origami-show-overlay (ov)
   (overlay-put ov 'invisible nil)
@@ -121,12 +125,12 @@ header is also available."
 
 (defun origami-activate-header (ov)
   (overlay-put ov 'origami-header-active t)
-  (overlay-put ov 'face 'origami-fold-header)
+  (overlay-put ov 'face 'origami-fold-header-face)
   (overlay-put ov 'before-string
                (propertize
                 "…"
                 'display
-                '(left-fringe empty-line origami-fold-fringe))))
+                '(left-fringe empty-line origami-fold-fringe-face))))
 
 (defun origami-deactivate-header (ov)
   (overlay-put ov 'origami-header-active nil)
