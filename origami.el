@@ -37,27 +37,79 @@
 (require 'cl)
 (require 'origami-parsers)
 
+;;; fold display mode and faces
+
+(defcustom origami-fold-display-mode 'dots
+  "Display mode for folded areas.
+By default, a traditional \"...\" format is used. A highlighted
+header is also available."
+  :tag "Display mode for folds"
+  :type '(choice (const :tag "Three dots" dots)
+                 (const :tag "Highlighted header" header))
+  :group 'origami)
+
+(defface origami-fold-header
+  '((t (:box (:line-width 1 :color "#050")
+             :background "#001500")))
+  "Face used to display fold headers.")
+
+(defface origami-fold-fringe
+  '((t (:inherit highlight)))
+  "Face used to display fringe contents.")
+
+(defgroup origami '((origami-fold-header custom-face)
+                     (origami-fold-fringe custom-face))
+  "Origami: A text folding minor mode for Emacs, by Greg Sexton.")
+
 ;;; overlay manipulation
 
 (defun origami-create-overlay (beg end offset buffer)
   (when (> (- end beg) 0)
     (let ((ov (make-overlay (+ beg offset) end buffer)))
+      (overlay-put ov 'creator 'origami)
       (overlay-put ov 'isearch-open-invisible 'origami-isearch-show)
       (overlay-put ov 'isearch-open-invisible-temporary
                    (lambda (ov hide-p) (if hide-p (origami-hide-overlay ov)
                                          (origami-show-overlay ov))))
-      ov)))
+      ;; We create a header overlay even when disabled; this could be avoided,
+      ;; especially if we called origami-reset for each buffer if customizations
+      ;; changed.
+      (with-current-buffer buffer
+        (let* ((line-begin
+                (save-excursion
+                  (goto-char (+ beg offset))
+                  (line-beginning-position)))
+               (fold-end
+                ;; Find the end of the folded region -- try to include the
+                ;; newline if possible. The header will span the entire fold.
+                (save-excursion
+                  (goto-char end)
+                  (when (looking-at ".")
+                    (forward-char 1)
+                    (when (looking-at "\n")
+                      (forward-char 1)))
+                  (point)))
+               (header-ov (make-overlay line-begin fold-end buffer)))
+          (overlay-put header-ov 'creator 'origami)
+          (overlay-put header-ov 'fold-overlay ov)
+          (overlay-put ov 'header-ov header-ov)))
+        ov)))
 
 (defun origami-hide-overlay (ov)
-  ;; TODO: make all of this customizable
+  ;; TODO: make more of this customizable
   (overlay-put ov 'invisible 'origami)
-  (overlay-put ov 'display "...")
-  (overlay-put ov 'face 'font-lock-comment-delimiter-face))
+  (case origami-fold-display-mode
+    ('dots
+     (overlay-put ov 'display "...")
+     (overlay-put ov 'face 'font-lock-comment-delimiter-face))
+    ('header
+     (origami-activate-header (overlay-get ov 'header-ov)))))
 
 (defun origami-show-overlay (ov)
   (overlay-put ov 'invisible nil)
   (overlay-put ov 'display nil)
-  (overlay-put ov 'face nil))
+  (overlay-put ov 'face nil)
+  (origami-deactivate-header (overlay-get ov 'header-ov)))
 
 (defun origami-hide-node-overlay (node)
   (-when-let (ov (origami-fold-data node))
@@ -66,6 +118,21 @@
 (defun origami-show-node-overlay (node)
   (-when-let (ov (origami-fold-data node))
     (origami-show-overlay ov)))
+
+(defun origami-activate-header (ov)
+  (overlay-put ov 'origami-header-active t)
+  (overlay-put ov 'face 'origami-fold-header)
+  (overlay-put ov 'before-string
+               (propertize
+                "…"
+                'display
+                '(left-fringe empty-line origami-fold-fringe))))
+
+(defun origami-deactivate-header (ov)
+  (overlay-put ov 'origami-header-active nil)
+  (overlay-put ov 'face nil)
+  (overlay-put ov 'before-string nil)
+  (overlay-put ov 'after-string nil))
 
 (defun origami-isearch-show (ov)
   (origami-show-node (current-buffer) (point)))
@@ -83,7 +150,7 @@
 
 (defun origami-remove-all-overlays (buffer)
   (with-current-buffer buffer
-    (remove-overlays (point-min) (point-max) 'invisible 'origami)))
+    (remove-overlays (point-min) (point-max) 'creator 'origami)))
 
 ;;; fold structure
 
