@@ -69,6 +69,34 @@
 
 ;;; overlay manipulation
 
+(defun origami-header-overlay-range (fold-overlay)
+  "Given a `fold-overlay', return the range that the corresponding
+header overlay should cover. Result is a cons cell of (begin . end)."
+  (with-current-buffer (overlay-buffer fold-overlay)
+    (let ((fold-begin
+           (save-excursion
+             (goto-char (overlay-start fold-overlay))
+             (line-beginning-position)))
+          (fold-end
+           ;; Find the end of the folded region -- include the following
+           ;; newline if possible. The header will span the entire fold.
+           (save-excursion
+             (goto-char (overlay-end fold-overlay))
+             (when (looking-at ".")
+               (forward-char 1)
+               (when (looking-at "\n")
+                 (forward-char 1)))
+             (point))))
+      (cons fold-begin fold-end))))
+
+(defun origami-header-overlay-reset-position (header-overlay)
+  (-when-let (fold-ov (overlay-get header-overlay 'fold-overlay))
+    (let ((range (origami-header-overlay-range fold-ov)))
+      (move-overlay header-overlay (car range) (cdr range)))))
+
+(defun origami-header-modify-hook (header-overlay after-p b e &optional l)
+  (if after-p (origami-header-overlay-reset-position header-overlay)))
+
 (defun origami-create-overlay (beg end offset buffer)
   (when (> (- end beg) 0)
     (let ((ov (make-overlay (+ beg offset) end buffer)))
@@ -80,26 +108,14 @@
       ;; We create a header overlay even when disabled; this could be avoided,
       ;; especially if we called origami-reset for each buffer if customizations
       ;; changed.
-      (with-current-buffer buffer
-        (let* ((line-begin
-                (save-excursion
-                  (goto-char (+ beg offset))
-                  (line-beginning-position)))
-               (fold-end
-                ;; Find the end of the folded region -- try to include the
-                ;; newline if possible. The header will span the entire fold.
-                (save-excursion
-                  (goto-char end)
-                  (when (looking-at ".")
-                    (forward-char 1)
-                    (when (looking-at "\n")
-                      (forward-char 1)))
-                  (point)))
-               (header-ov (make-overlay line-begin fold-end buffer)))
-          (overlay-put header-ov 'creator 'origami)
-          (overlay-put header-ov 'fold-overlay ov)
-          (overlay-put ov 'header-ov header-ov)))
-        ov)))
+      (let* ((range (origami-header-overlay-range ov))
+             (header-ov (make-overlay (car range) (cdr range) buffer
+                        nil)))  ;; no front advance
+        (overlay-put header-ov 'creator 'origami)
+        (overlay-put header-ov 'fold-overlay ov)
+        (overlay-put header-ov 'modification-hooks '(origami-header-modify-hook))
+        (overlay-put ov 'header-ov header-ov))
+      ov)))
 
 (defun origami-hide-overlay (ov)
   ;; TODO: make more of this customizable
@@ -124,6 +140,10 @@
     (origami-show-overlay ov)))
 
 (defun origami-activate-header (ov)
+  ;; Reposition the header overlay. Since it extends before the folded area, it
+  ;; may no longer cover the appropriate locations.
+  (origami-header-overlay-reset-position ov)
+
   (overlay-put ov 'origami-header-active t)
   (overlay-put ov 'face 'origami-fold-header-face)
   (overlay-put ov 'before-string
