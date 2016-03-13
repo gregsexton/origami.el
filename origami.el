@@ -37,27 +37,99 @@
 (require 'cl)
 (require 'origami-parsers)
 
+;;; fold display mode and faces
+
+(defcustom origami-fold-replacement "..."
+  ;; TODO: this should also be specifiable as a function: folded text -> string
+  "Show this string instead of the folded text."
+  :type 'string
+  :group 'origami)
+
+(defcustom origami-show-fold-header nil
+  "Highlight the line the fold start on."
+  :type 'boolean
+  :group 'origami)
+
+(defface origami-fold-header-face
+  `((t (:box (:line-width 1 :color ,(face-attribute 'highlight :background))
+             :background ,(face-attribute 'highlight :background))))
+  "Face used to display fold headers.")
+
+(defface origami-fold-fringe-face
+  '((t ()))
+  "Face used to display fringe contents.")
+
+(defface origami-fold-replacement-face
+  '((t :inherit 'font-lock-comment-face))
+  "Face used to display the fold replacement text.")
+
+(defgroup origami '((origami-fold-header-face custom-face)
+                    (origami-fold-fringe-face custom-face)
+                    (origami-fold-replacement-face custom-face))
+  "Origami: A text folding minor mode for Emacs.")
+
 ;;; overlay manipulation
+
+(defun origami-header-overlay-range (fold-overlay)
+  "Given a `fold-overlay', return the range that the corresponding
+header overlay should cover. Result is a cons cell of (begin . end)."
+  (with-current-buffer (overlay-buffer fold-overlay)
+    (let ((fold-begin
+           (save-excursion
+             (goto-char (overlay-start fold-overlay))
+             (line-beginning-position)))
+          (fold-end
+           ;; Find the end of the folded region -- include the following
+           ;; newline if possible. The header will span the entire fold.
+           (save-excursion
+             (goto-char (overlay-end fold-overlay))
+             (when (looking-at ".")
+               (forward-char 1)
+               (when (looking-at "\n")
+                 (forward-char 1)))
+             (point))))
+      (cons fold-begin fold-end))))
+
+(defun origami-header-overlay-reset-position (header-overlay)
+  (-when-let (fold-ov (overlay-get header-overlay 'fold-overlay))
+    (let ((range (origami-header-overlay-range fold-ov)))
+      (move-overlay header-overlay (car range) (cdr range)))))
+
+(defun origami-header-modify-hook (header-overlay after-p b e &optional l)
+  (if after-p (origami-header-overlay-reset-position header-overlay)))
 
 (defun origami-create-overlay (beg end offset buffer)
   (when (> (- end beg) 0)
     (let ((ov (make-overlay (+ beg offset) end buffer)))
+      (overlay-put ov 'creator 'origami)
       (overlay-put ov 'isearch-open-invisible 'origami-isearch-show)
       (overlay-put ov 'isearch-open-invisible-temporary
                    (lambda (ov hide-p) (if hide-p (origami-hide-overlay ov)
                                          (origami-show-overlay ov))))
+      ;; We create a header overlay even when disabled; this could be avoided,
+      ;; especially if we called origami-reset for each buffer if customizations
+      ;; changed.
+      (let* ((range (origami-header-overlay-range ov))
+             (header-ov (make-overlay (car range) (cdr range) buffer
+                                      nil))) ;; no front advance
+        (overlay-put header-ov 'creator 'origami)
+        (overlay-put header-ov 'fold-overlay ov)
+        (overlay-put header-ov 'modification-hooks '(origami-header-modify-hook))
+        (overlay-put ov 'header-ov header-ov))
       ov)))
 
 (defun origami-hide-overlay (ov)
-  ;; TODO: make all of this customizable
   (overlay-put ov 'invisible 'origami)
-  (overlay-put ov 'display "...")
-  (overlay-put ov 'face 'font-lock-comment-delimiter-face))
+  (overlay-put ov 'display origami-fold-replacement)
+  (overlay-put ov 'face 'origami-fold-replacement-face)
+  (if origami-show-fold-header
+      (origami-activate-header (overlay-get ov 'header-ov))))
 
 (defun origami-show-overlay (ov)
   (overlay-put ov 'invisible nil)
   (overlay-put ov 'display nil)
-  (overlay-put ov 'face nil))
+  (overlay-put ov 'face nil)
+  (origami-deactivate-header (overlay-get ov 'header-ov)))
 
 (defun origami-hide-node-overlay (node)
   (-when-let (ov (origami-fold-data node))
@@ -66,6 +138,24 @@
 (defun origami-show-node-overlay (node)
   (-when-let (ov (origami-fold-data node))
     (origami-show-overlay ov)))
+
+(defun origami-activate-header (ov)
+  ;; Reposition the header overlay. Since it extends before the folded area, it
+  ;; may no longer cover the appropriate locations.
+  (origami-header-overlay-reset-position ov)
+  (overlay-put ov 'origami-header-active t)
+  (overlay-put ov 'face 'origami-fold-header-face)
+  (overlay-put ov 'before-string
+               (propertize
+                "…"
+                'display
+                '(left-fringe empty-line origami-fold-fringe-face))))
+
+(defun origami-deactivate-header (ov)
+  (overlay-put ov 'origami-header-active nil)
+  (overlay-put ov 'face nil)
+  (overlay-put ov 'before-string nil)
+  (overlay-put ov 'after-string nil))
 
 (defun origami-isearch-show (ov)
   (origami-show-node (current-buffer) (point)))
@@ -83,7 +173,7 @@
 
 (defun origami-remove-all-overlays (buffer)
   (with-current-buffer buffer
-    (remove-overlays (point-min) (point-max) 'invisible 'origami)))
+    (remove-overlays (point-min) (point-max) 'creator 'origami)))
 
 ;;; fold structure
 
