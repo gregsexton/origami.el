@@ -40,18 +40,19 @@
 ;;; fold display mode and faces
 
 (defcustom origami-fold-replacement "..."
+  ;; TODO: this should also be specifiable as a function: folded text -> string
   "Show this string instead of the folded text."
   :type 'string
   :group 'origami)
 
-(defcustom origami-show-fold-header t
+(defcustom origami-show-fold-header nil
   "Highlight the line the fold start on."
   :type 'boolean
   :group 'origami)
 
 (defface origami-fold-header-face
-  '((t (:box (:line-width 1 :color "#050")
-             :background "#001500")))
+  `((t (:box (:line-width 1 :color ,(face-attribute 'highlight :background))
+             :background ,(face-attribute 'highlight :background))))
   "Face used to display fold headers.")
 
 (defface origami-fold-fringe-face
@@ -59,13 +60,13 @@
   "Face used to display fringe contents.")
 
 (defface origami-fold-replacement-face
-  '((t :foreground "#555"))
+  '((t :inherit 'font-lock-comment-face))
   "Face used to display the fold replacement text.")
 
 (defgroup origami '((origami-fold-header-face custom-face)
-                     (origami-fold-fringe-face custom-face)
-                     (origami-fold-replacement-face custom-face))
-  "Origami: A text folding minor mode for Emacs, by Greg Sexton.")
+                    (origami-fold-fringe-face custom-face)
+                    (origami-fold-replacement-face custom-face))
+  "Origami: A text folding minor mode for Emacs.")
 
 ;;; overlay manipulation
 
@@ -110,7 +111,7 @@ header overlay should cover. Result is a cons cell of (begin . end)."
       ;; changed.
       (let* ((range (origami-header-overlay-range ov))
              (header-ov (make-overlay (car range) (cdr range) buffer
-                        nil)))  ;; no front advance
+                                      nil))) ;; no front advance
         (overlay-put header-ov 'creator 'origami)
         (overlay-put header-ov 'fold-overlay ov)
         (overlay-put header-ov 'modification-hooks '(origami-header-modify-hook))
@@ -118,12 +119,11 @@ header overlay should cover. Result is a cons cell of (begin . end)."
       ov)))
 
 (defun origami-hide-overlay (ov)
-  ;; TODO: make more of this customizable
   (overlay-put ov 'invisible 'origami)
   (overlay-put ov 'display origami-fold-replacement)
   (overlay-put ov 'face 'origami-fold-replacement-face)
   (if origami-show-fold-header
-     (origami-activate-header (overlay-get ov 'header-ov))))
+      (origami-activate-header (overlay-get ov 'header-ov))))
 
 (defun origami-show-overlay (ov)
   (overlay-put ov 'invisible nil)
@@ -143,7 +143,6 @@ header overlay should cover. Result is a cons cell of (begin . end)."
   ;; Reposition the header overlay. Since it extends before the folded area, it
   ;; may no longer cover the appropriate locations.
   (origami-header-overlay-reset-position ov)
-
   (overlay-put ov 'origami-header-active t)
   (overlay-put ov 'face 'origami-fold-header-face)
   (overlay-put ov 'before-string
