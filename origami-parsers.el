@@ -115,6 +115,37 @@ position in the CONTENT."
           build-nodes
           cdr))))
 
+;; Added support for C-Makros
+(defun origami-build-pair-tree-makro-c (create open openM close closeM positions)
+  (cl-labels ((build (positions)
+                     ;; this is so horrible, but fast
+                     (let (acc beg (should-continue t))
+                       (while (and should-continue positions)
+                         (cond ((or (equal (caar positions) open)
+                                     (equal (caar positions) openM))
+                                (if beg                       ;go down a level
+                                    (let* ((res (build positions))
+                                           (new-pos (car res))
+                                           (children (cdr res)))
+                                      (setq positions (cdr new-pos))
+                                      (setq acc (cons (funcall create beg (cdar new-pos) (length open) children)
+                                                      acc))
+                                      (setq beg nil))
+                                  ;; begin a new pair
+                                  (setq beg (cdar positions))
+                                  (setq positions (cdr positions))))
+                               ( (or (equal (caar positions) closeM)
+                                     (equal (caar positions) close))
+                                (if beg
+                                    (progn                 ;close with no children
+                                      (setq acc (cons (funcall create beg (cdar positions) (length close) nil)
+                                                      acc))
+                                      (setq positions (cdr positions))
+                                      (setq beg nil))
+                                  (setq should-continue nil)))))
+                       (cons positions (reverse acc)))))
+    (cdr (build positions))))
+
 (defun origami-build-pair-tree (create open close positions)
   (cl-labels ((build (positions)
                      ;; this is so horrible, but fast
@@ -142,6 +173,13 @@ position in the CONTENT."
                                   (setq should-continue nil)))))
                        (cons positions (reverse acc)))))
     (cdr (build positions))))
+
+;; Support for C-Makros
+(defun origami-c-with-makros-parser (create)
+  (lambda (content)
+    (let ((positions (origami-get-positions content "#ifdef\\|#endif\\|[{}]")))
+      (origami-build-pair-tree-makro-c
+       create "{" "#ifdef" "}" "#endif" positions))))
 
 ;;; TODO: tag these nodes? have ability to manipulate nodes that are
 ;;; tagged? in a scoped fashion?
@@ -208,8 +246,8 @@ position in the CONTENT."
 
 (defcustom origami-parser-alist
   `((java-mode             . origami-java-parser)
-    (c-mode                . origami-c-style-parser)
-    (c++-mode              . origami-c-style-parser)
+    (c-mode                . origami-c-with-makros-parser)
+    (c++-mode              . origami-c-with-makros-parser)
     (perl-mode             . origami-c-style-parser)
     (cperl-mode            . origami-c-style-parser)
     (js-mode               . origami-c-style-parser)
