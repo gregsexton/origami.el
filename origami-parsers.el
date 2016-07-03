@@ -167,8 +167,8 @@ position in the CONTENT."
 
 (defun origami-c-macro-parser (create)
   (lambda (content)
-    (let ((positions (origami-get-positions content "#ifdef\\|#endif")))
-      (origami-build-pair-tree create "#ifdef" "#endif" positions))))
+    (let ((positions (origami-get-positions content "#if\\|#endif")))
+      (origami-build-pair-tree create "#if" "#endif" positions))))
 
 (defun origami-c-parser (create)
   (let ((c-style (origami-c-style-parser create))
