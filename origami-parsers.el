@@ -121,7 +121,7 @@ position in the CONTENT."
                      (let (acc beg (should-continue t))
                        (while (and should-continue positions)
                          (cond ((equal (caar positions) open)
-                                (if beg                       ;go down a level
+                                (if beg ;go down a level
                                     (let* ((res (build positions))
                                            (new-pos (car res))
                                            (children (cdr res)))
@@ -134,7 +134,7 @@ position in the CONTENT."
                                   (setq positions (cdr positions))))
                                ((equal (caar positions) close)
                                 (if beg
-                                    (progn                 ;close with no children
+                                    (progn ;close with no children
                                       (setq acc (cons (funcall create beg (cdar positions) (length close) nil)
                                                       acc))
                                       (setq positions (cdr positions))
@@ -164,6 +164,20 @@ position in the CONTENT."
                                                             font-lock-string-face)))
                                                 (if (listp face) face (list face)))))))))
       (origami-build-pair-tree create "{" "}" positions))))
+
+(defun origami-c-macro-parser (create)
+  (lambda (content)
+    (let ((positions (origami-get-positions content "#if\\|#endif")))
+      (origami-build-pair-tree create "#if" "#endif" positions))))
+
+(defun origami-c-parser (create)
+  (let ((c-style (origami-c-style-parser create))
+        (macros (origami-c-macro-parser create)))
+    (lambda (content)
+      (origami-fold-children
+       (origami-fold-shallow-merge
+        (origami-fold-root-node (funcall c-style content))
+        (origami-fold-root-node (funcall macros content)))))))
 
 (defun origami-java-parser (create)
   (let ((c-style (origami-c-style-parser create))
@@ -208,8 +222,8 @@ position in the CONTENT."
 
 (defcustom origami-parser-alist
   `((java-mode             . origami-java-parser)
-    (c-mode                . origami-c-style-parser)
-    (c++-mode              . origami-c-style-parser)
+    (c-mode                . origami-c-parser)
+    (c++-mode              . origami-c-parser)
     (perl-mode             . origami-c-style-parser)
     (cperl-mode            . origami-c-style-parser)
     (js-mode               . origami-c-style-parser)
