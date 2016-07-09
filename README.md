@@ -123,7 +123,22 @@ buffer - those in bold are particularly useful:
 
   <tr>
     <td>origami-next-fold</td>
-    <td>Move to the next fold.</td>
+    <td>Move to the end of the next fold.</td>
+  </tr>
+
+  <tr>
+    <td>origami-forward-fold</td>
+    <td>Move to the start of the next fold.</td>
+  </tr>
+
+  <tr>
+    <td>origami-forward-fold-same-level</td>
+    <td>Move to the start of the next fold that is a sibling of the current fold.</td>
+  </tr>
+
+  <tr>
+    <td>origami-backward-fold-same-level</td>
+    <td>Move to the start of the previous fold that is a sibling of the current fold.</td>
   </tr>
 
   <tr>

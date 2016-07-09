@@ -379,12 +379,26 @@ with the current state and the current node at each iteration."
 (defun origami-fold-shallow-merge (tree1 tree2)
   "Shallow merge the children of TREE2 in to TREE1."
   (-reduce-from (lambda (tree node)
-                  (origami-fold-assoc (origami-fold-find-path-containing-range tree
+  (origami-fold-assoc (origami-fold-find-path-containing-range tree
                                                                                (origami-fold-beg node)
                                                                                (origami-fold-end node))
                                       (lambda (leaf)
-                                        (origami-fold-add-child leaf node))))
+  (origami-fold-add-child leaf node))))
                 tree1 (origami-fold-children tree2)))
+
+(defun origami-fold-parent (path)
+  (-last-item (-butlast path)))
+
+(defun origami-fold-prev-sibling (siblings node)
+  (->> siblings
+       (-partition-in-steps 2 1)
+       (-drop-while (lambda (pair) (not (equal (cadr pair) node))))
+       caar))
+
+(defun origami-fold-next-sibling (siblings node)
+  (->> siblings
+       (-drop-while (lambda (n) (not (equal n node))))
+       cadr))
 
 ;;; linear history structure
 
@@ -686,10 +700,45 @@ a fold, move to the end of the fold that POINT is in."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-> tree
-      (origami-fold-postorder-reduce (lambda (state n)
-                                       (cons (origami-fold-end n) state)) nil)
-      (->> (-last (lambda (pos) (> pos point))))
-      goto-char)))
+        (origami-fold-postorder-reduce (lambda (state n)
+                                         (cons (origami-fold-end n) state)) nil)
+        (->> (-last (lambda (pos) (> pos point))))
+        goto-char)))
+
+(defun origami-forward-fold (buffer point)
+  "Move point to the beginning of the first fold in the BUFFER
+after POINT."
+  (interactive (list (current-buffer) (point)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (-> tree
+        (origami-fold-preorder-reduce (lambda (state n)
+  (cons (origami-fold-beg n) state)) nil)
+        (->> (-last (lambda (pos) (> pos point))))
+        goto-char)))
+
+(defun origami-forward-fold-same-level (buffer point)
+  "Move point to the beginning of the next fold in the buffer
+that is a sibling of the fold the point is currently in."
+  (interactive (list (current-buffer) (point)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (-when-let (path (origami-fold-find-path-containing tree point))
+      (when-let (c (-> (origami-fold-next-sibling (origami-fold-children
+                                                   (origami-fold-parent path))
+                                                  (-last-item path))
+                       origami-fold-beg))
+        (goto-char c)))))
+
+(defun origami-backward-fold-same-level (buffer point)
+  "Move point to the beginning of the previous fold in the buffer
+that is a sibling of the fold the point is currently in."
+  (interactive (list (current-buffer) (point)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (-when-let (path (origami-fold-find-path-containing tree point))
+      (-when-let (c (-> (origami-fold-prev-sibling (origami-fold-children
+                                                    (origami-fold-parent path))
+                                                   (-last-item path))
+                        origami-fold-beg))
+        (goto-char c)))))
 
 (defun origami-undo (buffer)
   "Undo the last folding operation applied to BUFFER. Undo
