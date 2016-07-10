@@ -722,10 +722,10 @@ that is a sibling of the fold the point is currently in."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
-      (when-let (c (-> (origami-fold-next-sibling (origami-fold-children
-                                                   (origami-fold-parent path))
-                                                  (-last-item path))
-                       origami-fold-beg))
+      (-when-let (c (-> (origami-fold-next-sibling (origami-fold-children
+                                                    (origami-fold-parent path))
+                                                   (-last-item path))
+                        origami-fold-beg))
         (goto-char c)))))
 
 (defun origami-backward-fold-same-level (buffer point)
