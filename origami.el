@@ -4,7 +4,7 @@
 ;; Version: 1.0
 ;; Keywords: folding
 ;; URL: https://github.com/gregsexton/origami.el
-;; Package-Requires: ((s "1.9.0") (dash "2.5.0") (emacs "24"))
+;; Package-Requires: ((s "1.9.0") (dash "2.5.0") (emacs "24") (cl-lib "0.5"))
 
 ;; The MIT License (MIT)
 
@@ -34,7 +34,7 @@
 
 (require 'dash)
 (require 's)
-(require 'cl)
+(require 'cl-lib)
 (require 'origami-parsers)
 
 ;;; fold display mode and faces
