@@ -39,6 +39,11 @@
 
 ;;; fold display mode and faces
 
+(defgroup origami nil
+  "Flexible text folding"
+  :prefix "origami-"
+  :group 'convenience)
+
 (defcustom origami-fold-replacement "..."
   ;; TODO: this should also be specifiable as a function: folded text -> string
   "Show this string instead of the folded text."
@@ -62,11 +67,6 @@
 (defface origami-fold-replacement-face
   '((t :inherit 'font-lock-comment-face))
   "Face used to display the fold replacement text.")
-
-(defgroup origami '((origami-fold-header-face custom-face)
-                    (origami-fold-fringe-face custom-face)
-                    (origami-fold-replacement-face custom-face))
-  "Origami: A text folding minor mode for Emacs.")
 
 ;;; overlay manipulation
 
