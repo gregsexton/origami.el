@@ -187,6 +187,26 @@ position in the CONTENT."
        (origami-fold-shallow-merge (origami-fold-root-node (funcall c-style content))
                                    (origami-fold-root-node (funcall javadoc content)))))))
 
+(defun origami-python-parser (create)
+  (lambda (content)
+    (with-temp-buffer
+      (insert content)
+      (python-mode)
+      (goto-char (point-min))
+      (beginning-of-defun -1)
+      (let (beg (end (point-max)) offset acc)
+        (while (not (= (point) end))
+          (setq beg (point))
+          (search-forward-regexp ":" nil t)
+          (setq offset (- (point) beg))
+          (end-of-defun)
+          (backward-char)
+          (setq end (point))
+          (when (> offset 0)
+            (setq acc (cons (funcall create beg end offset nil) acc)))
+          (beginning-of-defun -1))
+        (reverse acc)))))
+
 (defun origami-lisp-parser (create regex)
   (lambda (content)
     (with-temp-buffer
@@ -199,8 +219,8 @@ position in the CONTENT."
           (search-forward-regexp regex nil t)
           (setq offset (- (point) beg))
           (end-of-defun)
-          (backward-char)               ;move point to one after the last paren
-          (setq end (1- (point)))       ;don't include the last paren in the fold
+          (backward-char)      ;move point to one after the last paren
+          (setq end (1- (point))) ;don't include the last paren in the fold
           (when (> offset 0)
             (setq acc (cons (funcall create beg end offset nil) acc)))
           (beginning-of-defun -1))
@@ -231,7 +251,7 @@ position in the CONTENT."
     (js3-mode              . origami-c-style-parser)
     (go-mode               . origami-c-style-parser)
     (php-mode              . origami-c-style-parser)
-    (python-mode           . origami-indent-parser)
+    (python-mode           . origami-python-parser)
     (emacs-lisp-mode       . origami-elisp-parser)
     (lisp-interaction-mode . origami-elisp-parser)
     (clojure-mode          . origami-clj-parser)
