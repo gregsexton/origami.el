@@ -52,8 +52,9 @@ Origami has been tested on Emacs 24.3, 24.4 and 24.5.
 
 Origami works by parsing the buffer to determine a fold structure.
 
-The following commands are supplied to manipulate folds in the
-buffer - those in bold are particularly useful:
+The following commands are supplied to move between and manipulate
+folds. Those in bold are particularly useful. Many primitives are
+provided so that you may compose your own custom functions.
 
 <table>
   <tr>
