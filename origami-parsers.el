@@ -243,7 +243,7 @@ position in the CONTENT."
 (defcustom origami-parser-alist
   `((java-mode             . origami-java-parser)
     (c-mode                . origami-c-parser)
-    (c++-mode              . origami-c-parser)
+    (c++-mode              . origami-c-style-parser)
     (perl-mode             . origami-c-style-parser)
     (cperl-mode            . origami-c-style-parser)
     (js-mode               . origami-c-style-parser)
