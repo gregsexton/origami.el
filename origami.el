@@ -811,7 +811,9 @@ Key bindings:
                   'origami-find-occurrence-show-node nil t)
         (setq next-error-move-function (lambda (ignored pos)
                                          (goto-char pos)
-                                         (call-interactively 'origami-show-node))))
+                                         (call-interactively 'origami-show-node)))
+        (add-hook 'clone-indirect-buffer-hook
+                  (lambda () (origami-reset (current-buffer)))))
     (remove-hook 'occur-mode-find-occurrence-hook
                  'origami-find-occurrence-show-node t)
     (setq next-error-move-function nil))
