@@ -4,7 +4,7 @@
 ;; Version: 1.0
 ;; Keywords: folding
 ;; URL: https://github.com/gregsexton/origami.el
-;; Package-Requires: ((s "1.9.0") (dash "2.5.0") (emacs "24"))
+;; Package-Requires: ((s "1.9.0") (dash "2.5.0") (emacs "24") (cl-lib "0.5"))
 
 ;; The MIT License (MIT)
 
@@ -34,10 +34,15 @@
 
 (require 'dash)
 (require 's)
-(require 'cl)
+(require 'cl-lib)
 (require 'origami-parsers)
 
 ;;; fold display mode and faces
+
+(defgroup origami nil
+  "Flexible text folding"
+  :prefix "origami-"
+  :group 'convenience)
 
 (defcustom origami-fold-replacement "..."
   ;; TODO: this should also be specifiable as a function: folded text -> string
@@ -62,11 +67,6 @@
 (defface origami-fold-replacement-face
   '((t :inherit 'font-lock-comment-face))
   "Face used to display the fold replacement text.")
-
-(defgroup origami '((origami-fold-header-face custom-face)
-                    (origami-fold-fringe-face custom-face)
-                    (origami-fold-replacement-face custom-face))
-  "Origami: A text folding minor mode for Emacs.")
 
 ;;; overlay manipulation
 
