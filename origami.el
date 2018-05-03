@@ -533,12 +533,42 @@ will be the deepest nested at POINT."
                                            (origami-fold-assoc path (lambda (node)
                                                                       (origami-fold-open-set node t))))))))
 
+(defun origami-forward-open-node (buffer point)
+  "Like `origami-open-node' but search forward in BUFFER for a
+fold node. If a closed fold node is found after POINT and before
+the next line break, it will be opened. Otherwise, behave exactly
+as `origami-open-node'."
+  (interactive (list (current-buffer) (point)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (-when-let (path (origami-search-forward-for-path buffer point))
+      (origami-apply-new-tree buffer tree (origami-store-cached-tree
+                                           buffer
+                                           (origami-fold-assoc path (lambda (node)
+                                                                      (origami-fold-open-set node t))))))))
+
 (defun origami-open-node-recursively (buffer point)
   "Open the fold node and all of its children at POINT in BUFFER.
 The fold node opened will be the deepest nested at POINT."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
+      (origami-apply-new-tree
+       buffer tree (origami-store-cached-tree
+                    buffer
+                    (origami-fold-assoc path
+                                        (lambda (node)
+                                          (origami-fold-map (lambda (node)
+                                                              (origami-fold-open-set node t))
+                                                            node))))))))
+
+(defun origami-forward-open-node-recursively (buffer point)
+  "Like `origami-open-node-recursively' but search forward in BUFFER
+for a fold node. If a closed fold node is found after POINT and before
+the next line break, it will be opened and its children as well.
+Otherwise, behave exactly as `origami-open-node-recursively'."
+  (interactive (list (current-buffer) (point)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (-when-let (path (origami-search-forward-for-path buffer point))
       (origami-apply-new-tree
        buffer tree (origami-store-cached-tree
                     buffer
@@ -574,12 +604,43 @@ will be the deepest nested at POINT."
                                             path (lambda (node)
                                                    (origami-fold-open-set node nil))))))))
 
+(defun origami-forward-close-node (buffer point)
+  "Like `origami-close-node' but search forward in BUFFER for a
+fold node. If an opened fold node is found after POINT and before
+the next line break, it will be closed. Otherwise, behave exactly
+as `origami-close-node'."
+  (interactive (list (current-buffer) (point)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (-when-let (path (origami-search-forward-for-path buffer point))
+      (origami-apply-new-tree buffer tree (origami-store-cached-tree
+                                           buffer
+                                           (origami-fold-assoc
+                                            path (lambda (node)
+                                                   (origami-fold-open-set node nil))))))))
+
 (defun origami-close-node-recursively (buffer point)
   "Close the fold node and all of its children at POINT in BUFFER.
 The fold node closed will be the deepest nested at POINT."
   (interactive (list (current-buffer) (point)))
   (-when-let (tree (origami-get-fold-tree buffer))
     (-when-let (path (origami-fold-find-path-containing tree point))
+      (origami-apply-new-tree
+       buffer tree (origami-store-cached-tree
+                    buffer
+                    (origami-fold-assoc path
+                                        (lambda (node)
+                                          (origami-fold-map (lambda (node)
+                                                              (origami-fold-open-set node nil))
+                                                            node))))))))
+
+(defun origami-forward-close-node-recursively (buffer point)
+  "Like `origami-close-node-recursively' but search forward in BUFFER
+for a fold node. If an opened fold node is found after POINT and before
+the next line break, it will be opened and its children as well.
+Otherwise, behave exactly as `origami-close-node-recursively'."
+  (interactive (list (current-buffer) (point)))
+  (-when-let (tree (origami-get-fold-tree buffer))
+    (-when-let (path (origami-search-forward-for-path buffer point))
       (origami-apply-new-tree
        buffer tree (origami-store-cached-tree
                     buffer
