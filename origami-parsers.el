@@ -135,7 +135,7 @@ position in the CONTENT."
                                ((equal (caar positions) close)
                                 (if beg
                                     (progn ;close with no children
-                                      (setq acc (cons (funcall create beg (cdar positions) (length close) nil)
+                                      (setq acc (cons (funcall create beg (cdar positions) (length open) nil)
                                                       acc))
                                       (setq positions (cdr positions))
                                       (setq beg nil))
