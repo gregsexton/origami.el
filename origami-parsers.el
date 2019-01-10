@@ -251,6 +251,7 @@ position in the CONTENT."
     (js3-mode              . origami-c-style-parser)
     (go-mode               . origami-c-style-parser)
     (php-mode              . origami-c-style-parser)
+    (dart-mode             . origami-c-style-parser)
     (python-mode           . origami-python-parser)
     (emacs-lisp-mode       . origami-elisp-parser)
     (lisp-interaction-mode . origami-elisp-parser)
