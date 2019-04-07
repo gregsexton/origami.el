@@ -379,11 +379,11 @@ with the current state and the current node at each iteration."
 (defun origami-fold-shallow-merge (tree1 tree2)
   "Shallow merge the children of TREE2 in to TREE1."
   (-reduce-from (lambda (tree node)
-  (origami-fold-assoc (origami-fold-find-path-containing-range tree
+                  (origami-fold-assoc (origami-fold-find-path-containing-range tree
                                                                                (origami-fold-beg node)
                                                                                (origami-fold-end node))
                                       (lambda (leaf)
-  (origami-fold-add-child leaf node))))
+                                        (origami-fold-add-child leaf node))))
                 tree1 (origami-fold-children tree2)))
 
 (defun origami-fold-parent (path)
