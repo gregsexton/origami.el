@@ -197,20 +197,26 @@ position in the CONTENT."
       (defun origami-python-parser-one-level-blocks (wrap-beg wrap-end)
         "Parser one level python blocks of codes from WRAP-BEG to WRAP-END."
         (goto-char wrap-beg)
-        (let ((beg wrap-beg) (prev -1) (end wrap-end) (offset 0) children acc)
-          (while (and (< prev beg) (< beg end))
-            (python-nav-forward-block)
-            (setq prev beg) ;; if prev == beg, region has not next block
-            (setq beg (point))
-
-            (save-excursion (python-nav-end-of-block) (setq end (point)))
-            (save-excursion (python-nav-end-of-statement) (setq offset (- (point) beg)))
-            (save-excursion
+        (let (acc last last-on-buffer)
+          (while (and (not last) (not last-on-buffer))
+            (let ((beg wrap-beg) (end wrap-end) (offset 0) children)
+              (setq beg (point))
+              (message "Point: %s Begin %s End %s" (point) wrap-beg wrap-end)
+              (save-excursion
+                (python-nav-forward-block) (python-nav-end-of-block)  (setq end (point))
+                (when (>= end wrap-end) (setq last t)))
               (python-nav-forward-block)
-              (when (and (< (point) end) (< prev beg)) (setq children t)))
-            (when (and (< prev beg) (< beg end) (< end wrap-end))
-              (setq acc (cons (funcall create beg end offset (and children (origami-python-parser-one-level-blocks beg end))) acc)))
-            )
+              (when (= beg (point)) ;; if new beg without change after next block, it is last block on the page
+                (setq last-on-buffer t))
+              (setq beg (point))
+              (save-excursion (python-nav-end-of-statement) (setq offset (- (point) beg)))
+              (save-excursion
+                (python-nav-forward-block)
+                (if (< (point) end)
+                    (setq children t)
+                  (setq children nil)))
+              (when (and (not last-on-buffer) (<= end wrap-end))
+                (setq acc (cons (funcall create beg end offset (and children (origami-python-parser-one-level-blocks beg end))) acc)))))
           (reverse acc)))
       (origami-python-parser-one-level-blocks (point-min) (point-max)))))
 
