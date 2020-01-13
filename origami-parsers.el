@@ -201,15 +201,16 @@ position in the CONTENT."
           (while (and (not last) (not last-on-buffer))
             (let ((beg wrap-beg) (end wrap-end) (offset 0) children)
               (setq beg (point))
-              (message "Point: %s Begin %s End %s" (point) wrap-beg wrap-end)
               (save-excursion
-                (python-nav-forward-block) (python-nav-end-of-block)  (setq end (point))
+                (python-nav-forward-block)
+                (when (= beg (point)) ;; if new beg without change after next block, it is last block on the page
+                  (setq last-on-buffer t))
+                (setq beg (point))
+                (save-excursion
+                  (python-nav-end-of-statement) (setq offset (- (point) beg)))
+                (python-nav-end-of-block)  (setq end (point))
                 (when (>= end wrap-end) (setq last t)))
-              (python-nav-forward-block)
-              (when (= beg (point)) ;; if new beg without change after next block, it is last block on the page
-                (setq last-on-buffer t))
-              (setq beg (point))
-              (save-excursion (python-nav-end-of-statement) (setq offset (- (point) beg)))
+              (goto-char beg)
               (save-excursion
                 (python-nav-forward-block)
                 (if (< (point) end)
