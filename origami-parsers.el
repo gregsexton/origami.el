@@ -192,20 +192,21 @@ position in the CONTENT."
     (with-temp-buffer
       (insert content)
       (python-mode)
-      (goto-char (point-min))
-      (beginning-of-defun -1)
-      (let (beg (end (point-max)) offset acc)
-        (while (not (= (point) end))
-          (setq beg (point))
-          (search-forward-regexp ":" nil t)
-          (setq offset (- (point) beg))
-          (end-of-defun)
-          (backward-char)
-          (setq end (point))
-          (when (> offset 0)
-            (setq acc (cons (funcall create beg end offset nil) acc)))
-          (beginning-of-defun -1))
-        (reverse acc)))))
+      (defun python-subparser (beg end)
+	"find all fold block between beg and end."
+	(goto-char beg)
+	(let (acc)
+	  ;; iterate all same level children.
+	  (while (and (beginning-of-defun -1) (<= (point) end)) ;; have children between beg and end?
+	    (let* ((new-beg (point))
+		   (new-offset (progn (search-forward-regexp ":" nil t) (- (point) new-beg)))
+		   (new-end (progn (end-of-defun) (point))))
+	      (setq acc (cons (funcall create new-beg new-end new-offset
+				       (python-subparser new-beg new-end))
+			      acc))
+	      (goto-char new-end)))
+	  acc))
+      (python-subparser (point-min) (point-max)))))
 
 (defun origami-lisp-parser (create regex)
   (lambda (content)
