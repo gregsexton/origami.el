@@ -220,7 +220,7 @@ provides a richer set of functions for manipulating folds. It is also
 smarter about folding for the supported modes - yafolding uses
 indentation as a folding heuristic.
 
-# How is this different from [hideshow](http://www.emacswiki.org/HideShow)?
+# How is this different from [hideshow](https://www.emacswiki.org/emacs/HideShow)?
 
 Again, origami provides a much richer set of functions for
 manipulating folds. I looked at extending hideshow but gave up when I
@@ -232,7 +232,7 @@ Origami maintains a data structure representing the folds and provides
 a rich library of functions for manipulating it. This makes adding new
 folding operations easy.
 
-# How is this different from [folding.el](http://www.emacswiki.org/emacs/folding.el)?
+# How is this different from [folding.el](https://www.emacswiki.org/emacs/folding.el)?
 
 Folding.el uses markers in the buffer to annotate folds. Origami also
 supports this and more.
