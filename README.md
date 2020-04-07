@@ -63,8 +63,18 @@ provided so that you may compose your own custom functions.
   </tr>
 
   <tr>
+    <td>origami-forward-open-node</td>
+    <td>Search forward on this line for a fold node and open it. This makes opening nodes much more convenient.</td>
+  </tr>
+
+  <tr>
     <td>origami-open-node-recursively</td>
     <td>Open a fold node and all of its children.</td>
+  </tr>
+
+  <tr>
+    <td>origami-forward-open-node-recursively</td>
+    <td>Search forward on this line for a fold node and open it and all of its children. This makes opening nodes much more convenient.</td>
   </tr>
 
   <tr>
@@ -78,8 +88,18 @@ provided so that you may compose your own custom functions.
   </tr>
 
   <tr>
+    <td>origami-forward-close-node</td>
+    <td>Search forward on this line for a fold node and close it. This makes closing nodes much more convenient.</td>
+  </tr>
+
+  <tr>
     <td>origami-close-node-recursively</td>
     <td>Close a fold node and all of its children.</td>
+  </tr>
+
+  <tr>
+    <td>origami-forward-close-node-recursively</td>
+    <td>Search forward on this line for a fold node and close it and all of its children. This makes opening nodes much more convenient.</td>
   </tr>
 
   <tr>
