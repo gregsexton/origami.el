@@ -82,12 +82,15 @@ header overlay should cover. Result is a cons cell of (begin . end)."
            ;; Find the end of the folded region -- include the following
            ;; newline if possible. The header will span the entire fold.
            (save-excursion
-             (goto-char (overlay-end fold-overlay))
-             (when (looking-at ".")
-               (forward-char 1)
-               (when (looking-at "\n")
-                 (forward-char 1)))
-             (point))))
+             (save-match-data
+               (goto-char (overlay-end fold-overlay))
+               (when (looking-at ".")
+                 (forward-char 1)
+                 (when (looking-at "\n")
+                   (forward-char 1)))
+               (point))
+             )
+           ))
       (cons fold-begin fold-end))))
 
 (defun origami-header-overlay-reset-position (header-overlay)
