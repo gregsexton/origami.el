@@ -65,7 +65,7 @@
   "Face used to display fringe contents.")
 
 (defface origami-fold-replacement-face
-  '((t :inherit 'font-lock-comment-face))
+  `((t :inherit ,font-lock-comment-face))
   "Face used to display the fold replacement text.")
 
 ;;; overlay manipulation
