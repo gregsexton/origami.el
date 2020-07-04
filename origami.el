@@ -98,9 +98,10 @@ header overlay should cover. Result is a cons cell of (begin . end)."
 (defun origami-header-modify-hook (header-overlay after-p b e &optional l)
   (if after-p (origami-header-overlay-reset-position header-overlay)))
 
-(defun origami-create-overlay (beg end offset buffer)
+(defun origami-create-overlay (beg end offset buffer &optional alt-text)
   (when (> (- end beg) 0)
     (let ((ov (make-overlay (+ beg offset) end buffer)))
+      (overlay-put ov 'alt-text (or alt-text origami-fold-replacement))
       (overlay-put ov 'creator 'origami)
       (overlay-put ov 'isearch-open-invisible 'origami-isearch-show)
       (overlay-put ov 'isearch-open-invisible-temporary
@@ -120,7 +121,7 @@ header overlay should cover. Result is a cons cell of (begin . end)."
 
 (defun origami-hide-overlay (ov)
   (overlay-put ov 'invisible 'origami)
-  (overlay-put ov 'display origami-fold-replacement)
+  (overlay-put ov 'display (overlay-get ov 'alt-text))
   (overlay-put ov 'face 'origami-fold-replacement-face)
   (if origami-show-fold-header
       (origami-activate-header (overlay-get ov 'header-ov))))
@@ -474,7 +475,7 @@ was last built."
 
 (defun origami-get-parser (buffer)
   (let* ((cached-tree (origami-get-cached-tree buffer))
-         (create (lambda (beg end offset children)
+         (create (lambda (beg end offset children &optional alt-text)
                    (let ((previous-fold (-last-item (origami-fold-find-path-with-range cached-tree beg end))))
                      (origami-fold-node beg end offset
                                         (if previous-fold (origami-fold-open? previous-fold) t)
@@ -483,7 +484,8 @@ was last built."
                                                  (origami-get-cached-tree buffer) beg end)
                                                 -last-item
                                                 origami-fold-data)
-                                            (origami-create-overlay beg end offset buffer)))))))
+                                            (origami-create-overlay beg end offset buffer
+                                                                    alt-text)))))))
     (-when-let (parser-gen (or (cdr (assoc (if (local-variable-p 'origami-fold-style)
                                                (buffer-local-value 'origami-fold-style buffer)
                                              (buffer-local-value 'major-mode buffer))
