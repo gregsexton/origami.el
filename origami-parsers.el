@@ -32,6 +32,14 @@
 ;;; Code:
 (require 'cl-lib)
 (require 'dash)
+(require 's)
+
+;; The following prevent end-of-data byte-compiler warnings:
+;; these functions are defined in origami.el but can require origami
+;; because origami already requires origami-parsers.
+(declare-function origami-fold-children "origami")
+(declare-function origami-fold-shallow-merge "origami")
+(declare-function origami-fold-root-node "origami")
 
 (defun origami-get-positions (content regex)
   "Returns a list of positions where REGEX matches in CONTENT. A
@@ -206,6 +214,7 @@ position in the CONTENT."
 			      acc))
 	      (goto-char new-end)))
 	  acc))
+      (declare-function python-subparser "origami-parsers") ; prevent byte-compiler warning
       (python-subparser (point-min) (point-max)))))
 
 (defun origami-lisp-parser (create regex)

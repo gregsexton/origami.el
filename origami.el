@@ -95,7 +95,7 @@ header overlay should cover. Result is a cons cell of (begin . end)."
     (let ((range (origami-header-overlay-range fold-ov)))
       (move-overlay header-overlay (car range) (cdr range)))))
 
-(defun origami-header-modify-hook (header-overlay after-p b e &optional l)
+(defun origami-header-modify-hook (header-overlay after-p _b _e &optional _l)
   (if after-p (origami-header-overlay-reset-position header-overlay)))
 
 (defun origami-create-overlay (beg end offset buffer)
@@ -157,7 +157,7 @@ header overlay should cover. Result is a cons cell of (begin . end)."
   (overlay-put ov 'before-string nil)
   (overlay-put ov 'after-string nil))
 
-(defun origami-isearch-show (ov)
+(defun origami-isearch-show (_ov)
   (origami-show-node (current-buffer) (point)))
 
 (defun origami-hide-overlay-from-fold-tree-fn (node)
@@ -432,6 +432,12 @@ with the current state and the current node at each iteration."
 
 ;;; interactive utils
 
+;; The following defvar prevent byte compiler warnings.
+;; It would be better to replace the code with defvar-local forms
+;; but that was introduced in Emacs 24.3 and this package supports Emacs 24.
+(defvar origami-history)   ; prevent byte-compiler warning
+(defvar origami-tree-tick) ; prevent byte-compiler warning
+
 (defun origami-setup-local-vars (buffer)
   (with-current-buffer buffer
     (set (make-local-variable 'origami-history)
@@ -491,6 +497,8 @@ was last built."
                                'origami-indent-parser))
       (funcall parser-gen create))))
 
+(defvar origami-mode)                   ; forward declaration to prevent byte-compiler warning
+
 (defun origami-get-fold-tree (buffer)
   "Facade. Build the tree if it hasn't already been built
 otherwise fetch cached tree."
@@ -499,7 +507,7 @@ otherwise fetch cached tree."
         (origami-build-tree buffer (origami-get-parser buffer))
       (origami-get-cached-tree buffer))))
 
-(defun origami-apply-new-tree (buffer old-tree new-tree)
+(defun origami-apply-new-tree (_buffer old-tree new-tree)
   (when new-tree
     (origami-fold-diff old-tree new-tree
                        'origami-hide-overlay-from-fold-tree-fn
