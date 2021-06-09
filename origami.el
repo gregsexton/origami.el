@@ -273,7 +273,7 @@ header overlay should cover. Result is a cons cell of (begin . end)."
 F applied to the leaf."
   (cdr
    (-reduce-r-from (lambda (node acc)
-                     (destructuring-bind (old-node . new-node) acc
+                     (cl-destructuring-bind (old-node . new-node) acc
                        (cons node (origami-fold-replace-child node old-node new-node))))
                    (let ((leaf (-last-item path))) (cons leaf (funcall f leaf)))
                    (butlast path))))

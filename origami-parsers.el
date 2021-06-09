@@ -30,7 +30,7 @@
 ;;; Commentary:
 
 ;;; Code:
-(require 'cl)
+(require 'cl-lib)
 (require 'dash)
 
 (defun origami-get-positions (content regex)
@@ -95,7 +95,7 @@ position in the CONTENT."
                              ;; complexity here is due to having to find the end of the children so that the
                              ;; parent encompasses them
                              (-reduce-r-from (lambda (nodes acc)
-                                               (destructuring-bind (children-end . children) (build-nodes (cdr nodes))
+                                               (cl-destructuring-bind (children-end . children) (build-nodes (cdr nodes))
                                                  (let ((this-end (max children-end (end (car nodes)))))
                                                    (cons (max this-end (car acc))
                                                          (cons (funcall create
@@ -156,13 +156,13 @@ position in the CONTENT."
 (defun origami-c-style-parser (create)
   (lambda (content)
     (let ((positions (->> (origami-get-positions content "[{}]")
-                          (remove-if (lambda (position)
-                                       (let ((face (get-text-property 0 'face (car position))))
-                                         (-any? (lambda (f)
-                                                  (memq f '(font-lock-doc-face
-                                                            font-lock-comment-face
-                                                            font-lock-string-face)))
-                                                (if (listp face) face (list face)))))))))
+                          (cl-remove-if (lambda (position)
+                                          (let ((face (get-text-property 0 'face (car position))))
+                                            (-any? (lambda (f)
+                                                     (memq f '(font-lock-doc-face
+                                                               font-lock-comment-face
+                                                               font-lock-string-face)))
+                                                   (if (listp face) face (list face)))))))))
       (origami-build-pair-tree create "{" "}" positions))))
 
 (defun origami-c-macro-parser (create)
