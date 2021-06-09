@@ -237,7 +237,7 @@ position in the CONTENT."
         (reverse acc)))))
 
 (defun origami-elisp-parser (create)
-  (origami-lisp-parser create "(def\\w*\\s-*\\(\\s_\\|\\w\\|[:?!]\\)*\\([ \\t]*(.*?)\\)?"))
+  (origami-lisp-parser create "(\\(?:cl-\\)?def\\w*\\s-*\\(\\s_\\|\\w\\|[:?!]\\)*\\([ \\t]*(.*?)\\)?"))
 
 (defun origami-clj-parser (create)
   (origami-lisp-parser create "(def\\(\\w\\|-\\)*\\s-*\\(\\s_\\|\\w\\|[?!]\\)*\\([ \\t]*\\[.*?\\]\\)?"))
