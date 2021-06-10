@@ -810,7 +810,7 @@ Lastly, the normal hook `origami-mode-hook' is run using
 Key bindings:
 \\{origami-mode-map}"
   :group 'origami
-  :lighter nil
+  :lighter ""
   :keymap origami-mode-map
   :init-value nil
   (if origami-mode
