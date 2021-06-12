@@ -30,8 +30,16 @@
 ;;; Commentary:
 
 ;;; Code:
-(require 'cl)
+(require 'cl-lib)
 (require 'dash)
+(require 's)
+
+;; The following prevent end-of-data byte-compiler warnings:
+;; these functions are defined in origami.el but can require origami
+;; because origami already requires origami-parsers.
+(declare-function origami-fold-children "origami")
+(declare-function origami-fold-shallow-merge "origami")
+(declare-function origami-fold-root-node "origami")
 
 (defun origami-get-positions (content regex)
   "Returns a list of positions where REGEX matches in CONTENT. A
@@ -95,7 +103,7 @@ position in the CONTENT."
                              ;; complexity here is due to having to find the end of the children so that the
                              ;; parent encompasses them
                              (-reduce-r-from (lambda (nodes acc)
-                                               (destructuring-bind (children-end . children) (build-nodes (cdr nodes))
+                                               (cl-destructuring-bind (children-end . children) (build-nodes (cdr nodes))
                                                  (let ((this-end (max children-end (end (car nodes)))))
                                                    (cons (max this-end (car acc))
                                                          (cons (funcall create
@@ -156,13 +164,13 @@ position in the CONTENT."
 (defun origami-c-style-parser (create)
   (lambda (content)
     (let ((positions (->> (origami-get-positions content "[{}]")
-                          (remove-if (lambda (position)
-                                       (let ((face (get-text-property 0 'face (car position))))
-                                         (-any? (lambda (f)
-                                                  (memq f '(font-lock-doc-face
-                                                            font-lock-comment-face
-                                                            font-lock-string-face)))
-                                                (if (listp face) face (list face)))))))))
+                          (cl-remove-if (lambda (position)
+                                          (let ((face (get-text-property 0 'face (car position))))
+                                            (-any? (lambda (f)
+                                                     (memq f '(font-lock-doc-face
+                                                               font-lock-comment-face
+                                                               font-lock-string-face)))
+                                                   (if (listp face) face (list face)))))))))
       (origami-build-pair-tree create "{" "}" positions))))
 
 (defun origami-c-macro-parser (create)
@@ -206,6 +214,7 @@ position in the CONTENT."
 			      acc))
 	      (goto-char new-end)))
 	  acc))
+      (declare-function python-subparser "origami-parsers") ; prevent byte-compiler warning
       (python-subparser (point-min) (point-max)))))
 
 (defun origami-lisp-parser (create regex)
@@ -228,7 +237,7 @@ position in the CONTENT."
         (reverse acc)))))
 
 (defun origami-elisp-parser (create)
-  (origami-lisp-parser create "(def\\w*\\s-*\\(\\s_\\|\\w\\|[:?!]\\)*\\([ \\t]*(.*?)\\)?"))
+  (origami-lisp-parser create "(\\(?:cl-\\)?def\\w*\\s-*\\(\\s_\\|\\w\\|[:?!]\\)*\\([ \\t]*(.*?)\\)?"))
 
 (defun origami-clj-parser (create)
   (origami-lisp-parser create "(def\\(\\w\\|-\\)*\\s-*\\(\\s_\\|\\w\\|[?!]\\)*\\([ \\t]*\\[.*?\\]\\)?"))
