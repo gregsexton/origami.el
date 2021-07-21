@@ -241,6 +241,36 @@ position in the CONTENT."
         (let ((positions (origami-get-positions content regex)))
           (origami-build-pair-tree create start-marker end-marker positions))))))
 
+(defun origami-ruby-parser (create)
+  (lambda (content)
+    (with-temp-buffer
+      ;; first-line-offset allows beginning-of-defun to work when defun starts at point-min. it must be greater than 1
+      (let ((first-line-offset 2))
+        (defun move-to-new-defun (starting-point)
+          (beginning-of-defun -1)
+          (/= starting-point (point)))
+        (defun ruby-subparser (beg end)
+          "find all fold block between beg and end."
+          ;; (beginning-of-defun -1) will not work if there is a point at the beginning of the line of defun, so move one point
+          (goto-char (1+ beg))
+
+          (let (acc)
+            (while (and (move-to-new-defun (point)) (<= (point) end))
+              (let* ((new-beg (point))
+                     (new-offset (progn (end-of-line) (- (point) new-beg)))
+                     (new-end (progn (end-of-defun) (1- (point)))))
+                (setq acc (cons (funcall create
+                                         (- new-beg first-line-offset)
+                                         (- new-end first-line-offset)
+                                         new-offset
+                                         (ruby-subparser new-beg new-end)) acc))
+                (goto-char new-end)))
+            acc))
+        (newline first-line-offset)
+        (insert content)
+        (ruby-mode)
+        (ruby-subparser (point-min) (point-max))))))
+
 (defcustom origami-parser-alist
   `((java-mode             . origami-java-parser)
     (c-mode                . origami-c-parser)
@@ -256,6 +286,7 @@ position in the CONTENT."
     (emacs-lisp-mode       . origami-elisp-parser)
     (lisp-interaction-mode . origami-elisp-parser)
     (clojure-mode          . origami-clj-parser)
+    (ruby-mode             . origami-ruby-parser)
     (triple-braces         . ,(origami-markers-parser "{{{" "}}}")))
   "alist mapping major-mode to parser function."
   :type 'hook
