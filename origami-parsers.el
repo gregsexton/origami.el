@@ -95,7 +95,7 @@ position in the CONTENT."
                              ;; complexity here is due to having to find the end of the children so that the
                              ;; parent encompasses them
                              (-reduce-r-from (lambda (nodes acc)
-                                               (destructuring-bind (children-end . children) (build-nodes (cdr nodes))
+                                               (cl-destructuring-bind (children-end . children) (build-nodes (cdr nodes))
                                                  (let ((this-end (max children-end (end (car nodes)))))
                                                    (cons (max this-end (car acc))
                                                          (cons (funcall create
