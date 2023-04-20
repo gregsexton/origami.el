@@ -199,7 +199,7 @@ position in the CONTENT."
 	  ;; iterate all same level children.
 	  (while (and (beginning-of-defun -1) (<= (point) end)) ;; have children between beg and end?
 	    (let* ((new-beg (point))
-		   (new-offset (progn (search-forward-regexp ":" nil t) (- (point) new-beg)))
+		   (new-offset (progn (search-forward-regexp ":$" nil t) (- (point) new-beg)))
 		   (new-end (progn (end-of-defun) (point))))
 	      (setq acc (cons (funcall create new-beg new-end new-offset
 				       (python-subparser new-beg new-end))
